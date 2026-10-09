@@ -1,0 +1,21 @@
+/* Beskedet. Nere till höger, över sidans eget gränssnitt, borta av sig självt.
+   Register som appen: monokromt, kapade hörn, inget som blinkar. */
+.maximus-ruta {
+  position: fixed; right: 20px; bottom: 20px; z-index: 2147483647;
+  display: flex; align-items: center; gap: 10px;
+  max-width: 380px; padding: 12px 16px;
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+  color: #ececec; background: #1b1c1e;
+  border: 1px solid #2e3034; border-radius: 4px;
+  box-shadow: 0 10px 34px #00000059;
+  animation: maximus-in .18s cubic-bezier(.2, .8, .2, 1);
+}
+.maximus-ruta.fel { border-color: #d8a13f }
+.maximus-marke {
+  flex: 0 0 auto; padding: 2px 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: .1em;
+  color: #1b1c1e; background: #ececec;
+}
+.maximus-ruta.fel .maximus-marke { background: #d8a13f }
+@keyframes maximus-in { from { opacity: 0; transform: translateY(6px) } }
+@media (prefers-reduced-motion: reduce) { .maximus-ruta { animation: none } }

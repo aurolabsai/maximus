@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAXIMUS</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" type="module"></script>
+</head>
+<body>
+
+<!-- Startskärmen.
+     Ligger i html och inte i app.js med flit: den ska stå på skärmen innan
+     modulen ens har laddats, annars är det en startskärm som kommer efter
+     starten. Den tas bort av app.js när första ritningen är klar. -->
+<div class="start" id="start">
+  <svg class="start-marke" viewBox="0 0 64 64" aria-hidden="true">
+    <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt"><path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/><path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/></g><circle cx="32" cy="32" r="3.6" fill="currentColor"/>
+  </svg>
+  <span class="start-namn">maximus</span>
+  <span class="start-strek"><i></i></span>
+</div>
+
+<!-- Öronmärkningen (Fas 16). Märket bor här, nere till höger — inte i
+     toppraden, och inte i en knapp som gör något annat. Det säger vems app
+     det är; ringarna vrider sig då och då och låser sig igen. -->
+<!-- Vilan (2026-10-04): märket glider in mot mitten och allt annat
+     dimmas bort. Klick på märket eller Esc två gånger; tillbaka med
+     mellanslag, Enter eller ett klick — och lösenordet om det finns. -->
+<div class="vila" id="vila" hidden><div class="vila-marke"><svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt"><path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/><path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/></g><circle cx="32" cy="32" r="3.6" fill="currentColor"/></svg><span>maximus</span></div><p class="vila-om" id="vila-om"></p><div class="vila-forlopp" id="vila-forlopp" hidden><i></i></div></div>
+<div class="oronmarke" role="button" tabindex="0" aria-label="Vila — dölj allt" title="Vila — dölj allt (Esc två gånger)" data-i18n-attr="title:vila.title; aria-label:vila.ariaLabel"><svg viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt"><path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/><path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/></g><circle cx="32" cy="32" r="3.6" fill="currentColor"/></svg><span>maximus</span></div>
+
+<!-- Starten.
+     Ingen guide och ingen dialog. En yta som står där tills det som MÅSTE
+     finnas finns: godkända villkor och en modell. Den första starten har
+     ingen modell, så allt här är skrivet i förväg — det finns ingen att be
+     om texten. Efter starten tar chatten över. -->
+<section class="borja" id="borja" hidden>
+  <div class="borja-inre" id="borja-steg"></div>
+</section>
+
+<!-- Locket.
+     Avsiktligt samma märke, samma namn, samma placering som startskärmen
+     ovanför. Den som kommer tillbaka till datorn ska mötas av det appen såg
+     ut som innan den öppnades — inte av sitt eget innehåll bakom en oskärpa.
+     Suddad text är fortfarande text på skärmen.
+
+     Ligger dold i html av samma skäl som startskärmen: locket ska kunna
+     läggas på utan att något ritas om. -->
+<div class="lock" id="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lock-rubrik">
+  <svg class="start-marke" viewBox="0 0 64 64" aria-hidden="true">
+    <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt"><path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/><path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/></g><circle cx="32" cy="32" r="3.6" fill="currentColor"/>
+  </svg>
+  <span class="start-namn">maximus</span>
+  <h1 class="lock-rubrik" id="lock-rubrik" data-i18n="lock.title">Lås upp MAXIMUS</h1>
+
+  <div class="lock-kod" id="lock-kod">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 1" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="1">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 2" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="2">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 3" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="3">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 4" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="4">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 5" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="5">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Siffra 6" data-i18n-attr="aria-label:lock.digitAria" data-i18n-n="6">
+  </div>
+  <!-- Reservfrågan. Ett fält i skärmen, inte prompt() — prompt finns i en
+       webbläsare men inte i appen, och en reservväg som bara fungerar i
+       felaktig miljö är ingen reservväg. -->
+  <div class="lock-svar" id="lock-svar" hidden>
+    <label id="lock-svar-fraga">—</label>
+    <input type="password" id="lock-svar-falt" autocomplete="off" maxlength="120" placeholder="Svaret" data-i18n-attr="placeholder:lock.answerPlaceholder">
+  </div>
+  <p class="lock-fel" id="lock-fel" hidden></p>
+
+  <!-- Reservvägarna. Nedtonade med flit: koden är vägen in, de andra två är
+       till för den som inte kommer ihåg den. -->
+  <div class="lock-annat">
+    <button type="button" id="lock-fraga" hidden data-i18n="lock.forgotCode">Kan inte koden</button>
+    <button type="button" id="lock-ord" data-i18n="lock.usePassword">Använd lösenordet</button>
+  </div>
+</div>
+
+<!-- Listen (Fas 48): alltid där, smal, med det man går till. Panelen till
+     höger fälls ut ur den vid hovring och glider in när musen går — eller
+     står fäst, om du fäst den. -->
+<nav class="list" id="list" aria-label="Maximus">
+  <span id="list-ny"></span>
+  <button type="button" class="list-knapp" id="list-hem" title="Hem" aria-label="Hem" data-panel="" data-i18n-attr="title:list.home; aria-label:list.home"></button>
+  <button type="button" class="list-knapp" id="list-agenten" title="Agenten" aria-label="Agenten" data-panel="samtal" data-i18n-attr="title:list.agent; aria-label:list.agent"></button>
+  <button type="button" class="list-knapp" id="list-uppdrag" title="Uppdrag" aria-label="Uppdrag" data-panel="samtal" data-i18n-attr="title:list.tasks; aria-label:list.tasks"><span class="plupp" id="list-plupp" hidden></span></button>
+  <button type="button" class="list-knapp" id="list-samtal" title="Samtal och projekt" aria-label="Samtal och projekt" data-panel="samtal" data-i18n-attr="title:list.conversations; aria-label:list.conversations"></button>
+  <span id="list-allt"></span>
+  <span class="list-luft"></span>
+  <button type="button" class="list-knapp" id="list-inst" title="Inställningar" aria-label="Inställningar" data-i18n-attr="title:allmant.settings; aria-label:allmant.settings"></button>
+  <span id="list-marke"></span>
+</nav>
+<aside class="sido" id="sido">
+  <div class="marke">
+    <button class="ikonknapp" id="appmeny" title="Mer" aria-label="Mer" aria-haspopup="true" aria-expanded="false" data-i18n-attr="title:sido.more; aria-label:sido.more"></button>
+    <!-- Motorn bredvid Mer (Auro 2026-10-05: "borde vara i sidebaren, där
+         vi har ..."). Den stod uppe till höger i arbetsytan, långt från
+         allt annat som rör appen själv. -->
+    <div class="strompanel" id="strompanel">
+      <button type="button" id="strom-knapp" aria-haspopup="true" aria-expanded="false"
+              aria-controls="strom-meny" title="Den lokala modellen"><span class="lampa"></span><span class="strom-ord" id="strom-ord" hidden></span></button>
+      <div class="strom-meny" id="strom-meny" role="menu"></div>
+    </div>
+    <!-- Plus öppnar en meny, inte bara en handling.
+         Det fanns två saker att skapa — ett samtal och ett projekt — och
+         bara det ena hade en knapp. Projektet låg i en radmeny på ett samtal
+         som redan fanns, vilket betyder att den som vill börja med ett
+         projekt måste börja med något annat. ⌘N gör fortfarande det vanliga
+         direkt; menyn är för det andra. -->
+    <!-- Fäst panelen (Fas 48): i den utfällda panelens eget huvud, där
+         musen redan är. Knappen i arbetsytan låg under panelen. -->
+    <button type="button" class="ikonknapp sido-fast" id="sido-fast" title="Fäst panelen" aria-label="Fäst panelen" data-i18n-attr="title:sido.pinPanel; aria-label:sido.pinPanel"></button>
+    <div class="nyval" id="nyval">
+      <button class="ny" id="ny" title="Ny session (⌘N)" aria-haspopup="true"
+              aria-expanded="false" aria-controls="ny-meny" aria-label="Ny" data-i18n-attr="aria-label:sido.newAria; title:vy.nySessionKortkommando"></button>
+      <div class="ny-meny" id="ny-meny" role="menu"></div>
+    </div>
+  </div>
+  <!-- Flera samtal i taget. Skift-klick i listan väljer ett spann,
+       kommando-klick plockar en i taget. Raden står ovanför listan, där
+       urvalet görs, och visas bara när något är valt — den som inte känner
+       till funktionen ska inte mötas av den. -->
+  <div class="flerval" id="flerval" hidden>
+    <span class="flerval-antal"></span>
+    <button type="button" class="tyst liten" id="flerval-arkiv" data-i18n="flerval.archive">Arkivera</button>
+    <button type="button" class="tyst liten" id="flerval-projekt" data-i18n="flerval.project">Projekt</button>
+    <button type="button" class="tyst liten farlig" id="flerval-bort" data-i18n="allmant.delete">Ta bort</button>
+    <button type="button" class="tyst liten flerval-av" id="flerval-avbryt" aria-label="Avbryt urvalet" data-i18n-attr="aria-label:flerval.cancelAria"></button>
+  </div>
+  <nav id="sessioner" aria-label="Sessioner" data-i18n-attr="aria-label:sido.sessionsAria"></nav>
+  <nav id="hjalpfragor" aria-label="Frågor om MAXIMUS" hidden data-i18n-attr="aria-label:sido.helpQuestionsAria"></nav>
+  <!-- Inställningarnas delar i sidopanelen (2026-10-04): "kräver större
+       ruta. Egentligen nyttja sidebar och arbetsytan." -->
+  <nav id="instnav" aria-label="Inställningar" hidden data-i18n-attr="aria-label:allmant.settings"></nav>
+  <button class="ny tillbaka" id="hjalp-tillbaka" hidden data-i18n="allmant.backToAssistant">Tillbaka till assistenten</button>
+
+  <div class="lador" id="lador" role="tablist" aria-label="Låda" data-i18n-attr="aria-label:sido.drawerAria">
+    <button type="button" data-lada="inkorg" role="tab" aria-selected="true"><i></i><span data-i18n="sido.active">Pågående</span></button>
+    <button type="button" data-lada="arkiv" role="tab" aria-selected="false"><i></i><span data-i18n="sido.archive">Arkiv</span></button>
+  </div>
+
+  <!-- Vägarna bor i appmenyn uppe vid märket. Knapparna står kvar som
+       hållare för sina hanterare — koden hänger dem på id, och en meny som
+       måste känna till varje funktions insida är en meny som går sönder när
+       insidan ändras. -->
+  <button id="oppna-liggare" hidden></button>
+  <button id="oppna-delning" hidden></button>
+  <button id="oppna-hjalp" hidden></button>
+  <button id="oppna-installningar" hidden></button>
+  <input type="file" id="delfil" accept=".maximus" hidden>
+  <div class="sido-drag" id="sido-drag" role="separator" aria-orientation="vertical"
+       aria-label="Dra för att ändra panelens bredd. Dubbelklicka för att återställa."
+       tabindex="0" data-i18n-attr="aria-label:sido.resizeAria"></div>
+</aside>
+
+<main>
+  <div class="topp">
+    <button id="sido-vaxel" title="Visa eller dölj sidofältet" aria-label="Sidofält" aria-expanded="true" data-i18n-attr="title:topp.sidebarToggleTitle; aria-label:topp.sidebarAria">
+      <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M8 3.5v13"/></svg>
+    </button>
+    <div class="sesstopp" id="sesstopp" hidden>
+      <b id="sesstopp-titel" tabindex="0" role="button" title="Byt namn" data-i18n-attr="title:sess.rename"></b>
+      <input type="text" id="sesstopp-falt" maxlength="90" hidden aria-label="Sessionens namn" data-i18n-attr="aria-label:sess.nameAria">
+      <span id="sesstopp-ursprung" hidden></span>
+      <button type="button" class="tyst liten" id="sess-svar" hidden data-i18n="sess.writeReply">Skriv svar</button>
+      <button type="button" class="sess-ikon" id="sess-namn" title="Byt namn" aria-label="Byt namn" data-i18n-attr="title:sess.rename; aria-label:sess.rename"></button>
+      <button type="button" class="sess-ikon" id="sess-dela" title="Dela som krypterad fil" aria-label="Dela som krypterad fil" data-i18n-attr="title:sess.shareEncrypted; aria-label:sess.shareEncrypted"></button>
+      <button type="button" class="sess-ikon" id="sess-mapp" title="Beslutsunderlag som PDF" aria-label="Beslutsunderlag som PDF" data-i18n-attr="title:sess.briefPdf; aria-label:sess.briefPdf"></button>
+      <!-- Sessionens filer. Syns bara när det finns några — en knapp som
+           alltid står där och oftast är tom lär en att inte trycka på den. -->
+      <button type="button" class="sess-filer" id="sess-artefakter" hidden
+              title="Filer i det här ärendet" data-i18n-attr="title:sess.filesTitle"></button>
+    </div>
+    <span class="topp-fyll"></span>
+    <!-- Allt Maximus kan, i varje vy (Auro 2026-10-05: "lägg de uppe i högra
+         hörnet på en NY session (och sessioner överlag)"). -->
+    <button type="button" class="topp-allt" id="topp-allt" title="Allt Maximus kan" aria-label="Allt Maximus kan" aria-expanded="false" data-i18n-attr="title:topp.everything; aria-label:topp.everything"></button>
+  </div>
+
+
+
+
+
+
+
+  <!-- Kalendern som kalender.
+       Rummet hade en lista i sidopanelen och samtalets tomma skärm i
+       arbetsytan — man såg alltså aldrig en kalender, bara fjorton dagars
+       möten under varandra. En månad är den enda vy som svarar på "när har
+       jag tid", och den frågan är hela skälet att öppna en kalender. -->
+
+
+  <div class="vy" id="vy-installningar" hidden>
+    <div class="vy-inre">
+  <div class="vy-topp">
+    <h2 data-i18n="allmant.settings">Inställningar</h2>
+    <button type="button" class="tyst" id="inst-stang" data-i18n="allmant.backToAssistant">Tillbaka till assistenten</button>
+  </div>
+  <p class="under" data-i18n="inst.intro">Allt här stannar på den här datorn. Det mesta behöver du aldrig ändra.</p>
+  <!-- Sju flikar med delar (Auro 2026-10-09, "ja på alla sex"). Avancerat
+       var en skräplåda: dina regler, molnet, djupsökningen och proxyn låg
+       där. Nu har allt ett hem, och delarna står indragna i sidopanelen
+       (#instnav) som hopp till sin rubrik. Raden här under är kvar för den
+       som når inställningarna utan panelen. -->
+  <div class="flik-rad" id="inst-flikar" role="tablist">
+    <button type="button" data-flik="du" role="tab" aria-selected="true" data-i18n="inst.tabYou">Du</button>
+    <button type="button" data-flik="agent" role="tab" aria-selected="false" data-i18n="list.agent">Agenten</button>
+    <button type="button" data-flik="skydd" role="tab" aria-selected="false" data-i18n="inst.tabProtection">Skydd</button>
+    <button type="button" data-flik="modell" role="tab" aria-selected="false" data-i18n="inst.tabModel">Modellen</button>
+    <button type="button" data-flik="kopplingar" role="tab" aria-selected="false" data-i18n="inst.tabConnections">Kopplingar</button>
+    <button type="button" data-flik="data" role="tab" aria-selected="false" data-i18n="inst.tabData">Dina data</button>
+    <button type="button" data-flik="om" role="tab" aria-selected="false" data-i18n="inst.tabAbout">Om Maximus</button>
+  </div>
+
+<div class="flik" data-flik="du">
+  <p class="under" data-i18n="du.intro">Vem du är, hur svaren blir, och hur appen ser ut.</p>
+<section class="del" data-del="profil">
+  <h3 class="agent-rubrik" data-i18n="du.profile">Profil</h3>
+  <label data-i18n="du.nameLabel">Vad ska jag kalla dig?
+    <input type="text" id="inst-namn" placeholder="Förnamn eller smeknamn" autocomplete="off" maxlength="40" data-i18n-attr="placeholder:du.namePlaceholder">
+  </label>
+  <!-- Du (Fas 47): ur det du redan har. LinkedIn-exporten, ett cv eller
+       profilsidan i Safari blir ett förslag; du läser och sparar. -->
+  <div class="du-in">
+    <button type="button" class="tyst" id="du-fil" data-i18n="du.importLinkedin">Läs in LinkedIn-export eller cv</button>
+    <button type="button" class="tyst" id="du-safari" data-i18n="du.readSafari">Läs profilen i Safari</button>
+    <input type="file" id="du-filval" accept=".zip,.pdf,.docx,.doc,.odt,.rtf,.txt,.md" hidden>
+  </div>
+  <p class="fotnotis" data-i18n="du.linkedinHelp">LinkedIn-exporten beställer du på LinkedIn: Mig → Inställningar → Dataskydd → Hämta en kopia av dina data. Allt läses här, på datorn. Maximus skriver, gillar och kontaktar aldrig någon i ditt namn.</p>
+  <p class="fotnotis" data-i18n="du.profileWhy">Ju mer Maximus vet om ditt arbete, desto bättre svar — och desto bättre vet agenten vad som är viktigt för dig. Det stannar på datorn och följer aldrig med en sökning.</p>
+  <label data-i18n="du.whoLabel">Vem du är
+    <input type="text" id="pr-vem" maxlength="400" autocomplete="off"
+           placeholder="Enhetschef på ett gruppboende i en mellanstor kommun" data-i18n-attr="placeholder:du.whoPlaceholder"></label>
+  <label data-i18n="du.workLabel">Vad du arbetar med
+    <input type="text" id="pr-arbetar" maxlength="400" autocomplete="off"
+           placeholder="Personalärenden, arbetsmiljö, upphandling av skolskjuts" data-i18n-attr="placeholder:du.workPlaceholder"></label>
+  <label data-i18n="du.goalLabel">Vad du vill uppnå
+    <input type="text" id="pr-vill" maxlength="400" autocomplete="off"
+           placeholder="Få igenom upphandlingen utan överprövning" data-i18n-attr="placeholder:du.goalPlaceholder"></label>
+  <label data-i18n="du.interestsLabel">Vad som intresserar dig
+    <input type="text" id="pr-intressen" maxlength="400" autocomplete="off"
+           placeholder="Lokal AI, säkerhet och dataskydd, SMF som bygger" data-i18n-attr="placeholder:du.interestsPlaceholder"></label>
+  <div class="rad-knappar"><span class="fotnotis" id="pr-svar"></span><div>
+    <button type="button" class="tyst" id="pr-forslag" data-i18n="du.suggestFromChats">Föreslå ur mina samtal</button>
+    <button type="button" class="primar" id="pr-spara" data-i18n="allmant.save">Spara</button>
+  </div></div>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="du.linkedinFeed">LinkedIn-flödet<i class="under-rad" id="du-flode-om">Av. Slås på under Agenten → Källor.</i></span>
+      <button type="button" class="strom" id="du-flode-knapp" data-i18n="allmant.change">Ändra</button></div>
+  </div>
+</section>
+<section class="del" data-del="svaren">
+  <h3 class="agent-rubrik" data-i18n="svaren.title">Svaren</h3>
+  <label data-i18n="svaren.voice">Rösten
+    <div id="inst-roster"></div>
+  </label>
+  <p class="fotnotis" data-i18n="svaren.voiceHelp">Ändrar bara hur Maximus låter — inte vad som skyddas. Gäller nya samtal.</p>
+  <p class="delrubrik" data-i18n="svaren.rulesTitle">Dina regler för svaren</p>
+  <label data-i18n="svaren.policyLabel">Riktlinjer Maximus ska följa i varje svar
+    <textarea id="inst-policy" rows="5" maxlength="4000" placeholder="Till exempel: Vi skriver alltid till medborgare på enkel svenska. Hänvisa till kommunens riktlinje för …" data-i18n-attr="placeholder:svaren.policyPlaceholder"></textarea>
+  </label>
+  <p class="fotnotis" data-i18n="svaren.policyCount"><span id="inst-policy-antal">0</span> av 4000 tecken. Skriv dem som du minns dem — Maximus städar formen, aldrig innehållet.</p>
+  <!-- Dina mallar (Fas 23): presentationer och dokument i ditt eget tema. -->
+  <p class="delrubrik" data-i18n="svaren.templates">Mallar</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="svaren.presentations">Presentationer<i class="under-rad" id="mall-presentation-om" data-i18n="svaren.defaultLook">Maximus eget utseende.</i></span>
+      <div class="rad-par"><button type="button" class="tyst liten" id="mall-presentation-val" data-i18n="svaren.chooseDeck">Välj .potx eller .pptx</button>
+        <button type="button" class="tyst liten" id="mall-presentation-bort" hidden data-i18n="svaren.removeTemplate">Ta bort</button></div></div>
+    <div class="har-rad"><span data-i18n="svaren.documents">Dokument<i class="under-rad" id="mall-dokument-om" data-i18n="svaren.defaultLook">Maximus eget utseende.</i></span>
+      <div class="rad-par"><button type="button" class="tyst liten" id="mall-dokument-val" data-i18n="svaren.chooseDoc">Välj .dotx eller .docx</button>
+        <button type="button" class="tyst liten" id="mall-dokument-bort" hidden data-i18n="svaren.removeTemplate">Ta bort</button></div></div>
+  </div>
+  <p class="fotnotis" data-i18n="svaren.templatesHelp">Typsnitten, färgerna, bildformatet, bakgrunden och logotypen i presentationsmallen följer med; i dokumentmallen hela formatmallen. Mallen läses här, på datorn.</p>
+  <div class="har" id="djup-ruta">
+    <div class="har-rad"><span data-i18n="svaren.deepTitle">Djupsökning (förstoringsglaset)<i class="under-rad" data-i18n="svaren.deepHelp">Hur grundligt Maximus letar när du ber om djupsökning: hur många varv, hur många källor och hur länge. Mer betyder bättre svar men längre väntan.</i></span></div>
+    <div class="reglar">
+      <label class="regel"><span data-i18n="svaren.deepRounds">Varv <b id="djup-varv-tal">3</b></span>
+        <input type="range" id="djup-varv" min="1" max="6" step="1" value="3"></label>
+      <label class="regel"><span data-i18n="svaren.deepSources">Källor <b id="djup-kallor-tal">12</b></span>
+        <input type="range" id="djup-kallor" min="4" max="30" step="1" value="12"></label>
+      <label class="regel"><span data-i18n="svaren.deepTime">Tid <b id="djup-sekunder-tal">180 s</b></span>
+        <input type="range" id="djup-sekunder" min="60" max="900" step="30" value="180"></label>
+    </div>
+    <div class="har-rad"><span data-i18n="svaren.checkCitations">Kontrollera källhänvisningarna<i class="under-rad" data-i18n="svaren.checkCitationsHelp">Efter varje svar kollar Maximus att det som står vid [1], [2] … faktiskt finns i källan. Står det inte där säger den det.</i></span>
+      <label class="vaxel"><input type="checkbox" id="inst-granska" checked><span></span></label></div>
+  </div>
+</section>
+<section class="del" data-del="utseende">
+  <h3 class="agent-rubrik" data-i18n="utseende.title">Utseende och inmatning</h3>
+  <!-- Språket (2026-10-09). Automatiskt följer datorns språk och tar det
+       närmaste som finns (lib/sprakstod.mjs). Svenska och English står på
+       sitt eget språk: den som letar efter sitt språk letar efter dess namn. -->
+  <label data-i18n="utseende.sprak">Språk
+    <select id="inst-sprak">
+      <option value="auto" data-i18n="utseende.sprakAuto">Automatiskt — datorns språk</option>
+      <option value="sv">Svenska</option>
+      <option value="en">English</option>
+    </select>
+  </label>
+  <label data-i18n="utseende.colours">Färger
+    <select id="inst-palett">
+      <option value="lunar" data-i18n="utseende.paletteLunar">Lunar Lilac — grafit och lila</option>
+      <option value="" data-i18n="utseende.paletteGraphite">Grafit — originalet</option>
+      <option value="tangent" data-i18n="utseende.paletteTangent">Tangent — nattblått och grädde</option>
+    </select>
+  </label>
+  <p class="fotnotis" data-i18n="utseende.themeHelp">Ljust eller mörkt följer datorns inställning.</p>
+  <label data-i18n="utseende.scale">Storlek på text och knappar<i class="under-rad" id="inst-appskala-tal">100 %</i>
+    <input type="range" id="inst-appskala" min="0" max="6" step="1" value="2">
+  </label>
+  <p class="fotnotis" data-i18n="utseende.scaleHelp">Samma som ⌘+ och ⌘−. ⌘0 återställer.</p>
+  <!-- Dikteringen (Fas 42). -->
+  <label data-i18n="utseende.dictationLabel">Diktering skickar efter
+    <select id="inst-diktat-tyst">
+      <option value="2" data-i18n="utseende.tystnad" data-i18n-n="2">2 sekunders tystnad</option>
+      <option value="3" data-i18n="utseende.tystnad" data-i18n-n="3">3 sekunders tystnad</option>
+      <option value="5" data-i18n="utseende.tystnad" data-i18n-n="5">5 sekunders tystnad</option>
+      <option value="0" data-i18n="utseende.dictationOnWord">Bara när jag säger "skicka"</option>
+    </select></label>
+  <p class="fotnotis" data-i18n="utseende.dictationHelp">Mikrofonen vid rutan skriver det du säger medan du talar, på datorn. Säg "skicka" sist för att skicka direkt, "avbryt" eller Esc för att ångra.</p>
+</section>
+</div>
+
+<!-- Agenten får bara det du ger den. Allt av från början. -->
+<div class="flik" data-flik="agent" hidden>
+  <p class="under" data-i18n="agent.intro">Agenten läser det du ger den lov till och säger till när något angår dig. Den skickar aldrig något, och gör ingenting i dina appar utan ditt ja.</p>
+<section class="del" data-del="kallor">
+  <h3 class="agent-rubrik" data-i18n="svaren.deepSources">Källor</h3>
+  <p class="fotnotis" data-i18n="agent.sourcesHelp">Det agenten hittar i en app skriver den i appens egen session i Grunden: Inkorgen, Kalendern, Anteckningarna, Meddelandena, Påminnelserna. Allt annat hamnar i Agenten.</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="agent.readMail">Läsa din e-post<i class="under-rad" id="ag-post-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-post-pa"><span></span></label></div>
+    <div class="har-rad" id="ag-post-val" hidden><span data-i18n="agent.whichAccount">Vilket konto<i class="under-rad" data-i18n="agent.whichAccountHelp">Ett konto och en brevlåda. Agenten ser inget annat.</i></span>
+      <div class="rad-par">
+        <select id="ag-post-konto"></select>
+        <input type="text" id="ag-post-lada" value="INBOX" spellcheck="false" autocomplete="off">
+      </div></div>
+    <div class="har-rad"><span data-i18n="agent.readCalendar">Läsa din kalender<i class="under-rad" id="ag-kal-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-kal-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.readNotes">Läsa dina anteckningar<i class="under-rad" id="ag-ant-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-ant-pa"><span></span></label></div>
+    <div class="har-rad" id="ag-ant-val" hidden><span data-i18n="agent.whichFolder">Vilken mapp<i class="under-rad" data-i18n="agent.whichFolderHelp">En mapp, inte alla dina anteckningar.</i></span>
+      <select id="ag-ant-mapp"></select></div>
+    <div class="har-rad"><span data-i18n="agent.readMessages">Läsa dina meddelanden<i class="under-rad" id="ag-med-pa-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-med-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.readReminders">Läsa dina påminnelser<i class="under-rad" id="ag-pam-pa-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-pam-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.readCallHistory">Läsa samtalslistan<i class="under-rad" id="ag-sam-pa-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-sam-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.readFolder">Läsa en mapp<i class="under-rad" id="ag-map-pa-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-map-pa"><span></span></label></div>
+    <div class="har-rad" id="ag-safari-rad"><span data-i18n="agent.readLinkedin">Läsa LinkedIn i Safari<i class="under-rad" id="ag-safari-om">Av. Agenten kan läsa den flik du har framme — din inloggade LinkedIn, eller en annan sida — men aldrig klicka, skriva eller skicka något.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-safari-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.followFeed">Följa LinkedIn-flödet<i class="under-rad" id="ag-lop-om">Av. Agenten läser bara LinkedIn-flikarna i Safari, varannan timme, och skriver, gillar och kontaktar aldrig någon.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-lop-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.readPages">Läsa webbsidor du pekar ut<i class="under-rad" data-i18n="agent.readPagesHelp">Till exempel en myndighets nyhetssida. Varje gång den läser sidan står det under Skickat.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-sid-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.news">Nyheter för dig<i class="under-rad" id="ag-nyh-om">Av. Hämtar nyheter om det som intresserar dig, vägda mot din profil, till Hem.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-nyh-pa"><span></span></label></div>
+    <div class="har-rad" id="ag-bev-rad" hidden><span data-i18n="agent.watchLaw">Bevaka lagändringar<i class="under-rad" data-i18n="agent.watchLawHelp">Säger till när en lag som dina svar byggde på ändras. Bara paragrafens nummer lämnar datorn, aldrig ditt ärende.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-bev-pa"><span></span></label></div>
+  </div>
+</section>
+<section class="del" data-del="arbete">
+  <h3 class="agent-rubrik" data-i18n="agent.work">Arbete</h3>
+  <div class="har">
+    <div class="har-rad" id="ag-tempo-rad"><span data-i18n="agent.pace">Tempo<i class="under-rad" id="ag-tempo-om">Hur ofta agenten tittar, och hur hårt den får arbeta själv.</i></span>
+      <select id="ag-tempo"><option value="lugn" data-i18n="agent.paceCalm">Lugn</option><option value="normal">Normal</option><option value="full" data-i18n="agent.paceFull">Full gas</option></select></div>
+    <div class="har-rad"><span data-i18n="agent.mayWork">Får börja arbeta själv<i class="under-rad" id="ag-arb-om">Av.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-arbetar"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.autoArchive">Lägga klara samtal i arkivet<i class="under-rad" data-i18n="agent.autoArchiveHelp">Undersökningar och engångssökningar efter en vecka, egna samtal som inte rörts på 30 dagar. Aldrig fästa, låsta eller i projekt. Skälet står i Arkiv, och det du tar tillbaka rör den inte igen.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-stadar"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.onBattery">På batteri<i class="under-rad" data-i18n="agent.onBatteryHelp">Glesare: tittar var tredje gång.</i></span>
+      <select id="ag-batteri">
+        <option value="glesare" data-i18n="agent.batteryLess">Glesare</option>
+        <option value="samma" data-i18n="agent.batterySame">Som vanligt</option>
+      </select></div>
+  </div>
+  <div class="ag-start" id="ag-start-del">
+  <label data-i18n="agent.whenRuns">När agenten kör
+    <select id="ag-start">
+      <option value="oppen" data-i18n="agent.runOpen">Bara medan Maximus är öppet</option>
+      <option value="inloggning" data-i18n="agent.runLogin">Öppna Maximus när datorn startar</option>
+      <option value="bakgrund" data-i18n="agent.runBackground">I bakgrunden, också när Maximus är stängt</option>
+    </select></label>
+  <div class="har">
+    <div class="har-rad" id="ag-dold-rad" hidden><span data-i18n="agent.startHidden">Starta med fönstret dolt<i class="under-rad" data-i18n="agent.startHiddenHelp">Agenten kör; fönstret visas när du klickar på Maximus i Dock.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-dold"><span></span></label></div>
+  </div>
+  <p class="fotnotis" id="ag-start-om">Stänger du appen slutar agenten. Uppdrag som missats körs ikapp nästa gång.</p>
+  </div>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="agent.tasks">Uppdragen<i class="under-rad" data-i18n="agent.tasksHelp">Varje uppdrag, när det kör nästa och vad det hittat — med kör nu, ändra när och pausa.</i></span>
+      <button type="button" class="strom" id="ag-till-uppdrag" data-i18n="agent.openTasks">Öppna Uppdrag</button></div>
+  </div>
+</section>
+<section class="del" data-del="handlingar">
+  <h3 class="agent-rubrik" data-i18n="agent.actions">Handlingar</h3>
+  <p class="fotnotis" data-i18n="agent.actionsHelp">Agenten kan föreslå att göra saker åt dig. Som förval frågar den varje gång, och ingenting görs förrän du säger ja. Mejl skickas aldrig — de läggs som utkast.</p>
+  <div class="ag-handlingar" id="ag-handlingar"></div>
+  <div class="har">
+    <div class="har-rad" id="ag-ant-skriv-rad" hidden><span data-i18n="agent.writeDaily">Skriva en daglig översikt i anteckningarna<i class="under-rad" id="ag-ant-skriv-om">Av. Agenten läser bara.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-ant-skriv"><span></span></label></div>
+  </div>
+</section>
+<section class="del" data-del="sager">
+  <h3 class="agent-rubrik" data-i18n="agent.alerts">Säger till</h3>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="agent.notify">Notis när agenten hittar något<i class="under-rad" data-i18n="agent.notifyHelp">I fönstret när det är framme, annars i macOS Notiscenter.</i></span>
+      <label class="vaxel"><input type="checkbox" id="ag-notiser"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="agent.toPhone">Till telefonen<i class="under-rad" id="ag-tel-om">Av. Maximus säger till här, på datorn.</i></span>
+      <select id="ag-tel-kanal"><option value="av" data-i18n="allmant.off">Av</option><option value="paminnelse" data-i18n="agent.phoneReminder">Påminnelse via iCloud</option><option value="imessage">iMessage</option></select></div>
+    <div class="har-rad" id="ag-tel-val" hidden><span data-i18n="agent.phoneWhere">Vart<i class="under-rad" id="ag-tel-till-om">Ditt nummer eller din e-post i iMessage.</i></span>
+      <div class="rad-par">
+        <input type="text" id="ag-tel-till" placeholder="+46 70 …" spellcheck="false" autocomplete="off" data-i18n-attr="placeholder:agent.phonePlaceholder">
+        <button type="button" class="tyst liten" id="ag-tel-prova" data-i18n="agent.phoneTest">Skicka ett prov</button>
+      </div></div>
+    <div class="har-rad"><span data-i18n="agent.overviewAs">Översikter visas som<i class="under-rad" data-i18n="agent.overviewAsHelp">Maskerat som förval: en dagsöversikt läses ofta där andra kan se skärmen.</i></span>
+      <select id="ag-behandling"></select></div>
+  </div>
+</section>
+</div>
+
+<div class="flik" data-flik="skydd" hidden>
+  <p class="under" data-i18n="skydd.intro">Det som håller dina uppgifter på din dator, och vad som döljs när något måste ut.</p>
+<section class="del" data-del="las">
+  <h3 class="agent-rubrik" data-i18n="skydd.lock">Lås</h3>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="skydd.password">Lösenord för Maximus<i class="under-rad" id="inst-maximus-om">—</i></span><button type="button" class="strom" id="inst-maximus-knapp">Sätt lösenord</button></div>
+    <div class="har-rad"><span data-i18n="skydd.lockAway">Lås när du går ifrån<i class="under-rad" id="inst-lock-om">—</i></span><button type="button" class="strom" id="inst-lock-knapp">Sätt kod</button></div>
+    <div class="har-rad"><span data-i18n="skydd.signOutAll">Logga ut överallt<i class="under-rad" data-i18n="skydd.signOutAllHelp">Har en länk till Maximus hamnat fel, eller en skärmbild visat den? Det här stänger alla öppna fönster, och du loggar in på nytt.</i></span><button type="button" class="strom" id="inst-aterkalla" data-i18n="allmant.signOut">Logga ut</button></div>
+  </div>
+  <label id="inst-lock-efter-rad" hidden data-i18n="skydd.closeAfter">Stäng Maximus efter
+    <select id="inst-lock-efter">
+      <option value="5" data-i18n="tid.minuter" data-i18n-n="5">5 minuter</option>
+      <option value="15" data-i18n="tid.minuter" data-i18n-n="15">15 minuter</option>
+      <option value="30" data-i18n="tid.minuter" data-i18n-n="30">30 minuter</option>
+      <option value="60" data-i18n="tid.timmar" data-i18n-n="1">1 timme</option>
+      <option value="240" data-i18n="tid.timmar" data-i18n-n="4">4 timmar</option>
+      <option value="480" data-i18n="tid.timmar" data-i18n-n="8">8 timmar</option>
+      <option value="0" data-i18n="tid.never">Aldrig av sig själv</option>
+    </select>
+  </label>
+  <p class="fotnotis" id="inst-lock-fot" hidden></p>
+
+  <!-- Vilan på timer (2026-10-04), som en skärmsläckare. 5 minuter som
+       förval. Med lösenord låser den; utan döljer den. -->
+  <label data-i18n="skydd.restAfter">Vila efter
+    <select id="inst-vila-efter">
+      <option value="1" data-i18n="tid.minuter" data-i18n-n="1">1 minut</option>
+      <option value="2" data-i18n="tid.minuter" data-i18n-n="2">2 minuter</option>
+      <option value="5" data-i18n="tid.minuter" data-i18n-n="5">5 minuter</option>
+      <option value="10" data-i18n="tid.minuter" data-i18n-n="10">10 minuter</option>
+      <option value="15" data-i18n="tid.minuter" data-i18n-n="15">15 minuter</option>
+      <option value="30" data-i18n="tid.minuter" data-i18n-n="30">30 minuter</option>
+      <option value="0" data-i18n="tid.never">Aldrig av sig själv</option>
+    </select></label>
+  <p class="fotnotis" data-i18n="skydd.restHelp">Efter så lång stillhet dimmas allt och märket står i mitten — som när du klickar på märket i hörnet. Med ett lösenord låses Maximus också. Väntar medan du spelar in eller ett svar skrivs.</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="skydd.openResting">Öppna i vilan<i class="under-rad" data-i18n="skydd.openRestingHelp">Maximus startar med märket i mitten. Enter för att komma in — med lösenord eller kod skriver du den först.</i></span>
+      <label class="vaxel"><input type="checkbox" id="inst-vila-start"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="skydd.rememberPassword">Kom ihåg lösenordet på den här datorn<i class="under-rad" data-i18n="skydd.rememberPasswordHelp">Sparas i datorns nyckelring, så att du slipper skriva det varje gång.</i></span>
+      <label class="vaxel"><input type="checkbox" id="inst-maximus-minns"><span></span></label></div>
+  </div>
+</section>
+<section class="del" data-del="dolj">
+  <h3 class="agent-rubrik" data-i18n="dolj.title">Vad som döljs</h3>
+  <p class="fotnotis" data-i18n="dolj.intro">Innan något lämnar datorn — en sökning, en text du tar med dig — byts namn och nummer mot platshållare som "Person A". Välj vad som ska döljas. Standard passar de flesta.</p>
+  <div class="paket" id="inst-paket"></div>
+  <p class="fotnotis" id="inst-paket-om"></p>
+  <details class="har-fall">
+    <summary><span data-i18n="dolj.showExact">Visa exakt vad som döljs</span><b data-i18n="dolj.showExactHint">för den som vill välja själv</b></summary>
+    <div class="har-inre"><div class="sorter" id="inst-sorter"></div></div>
+  </details>
+  <div class="har">
+    <div class="har-rad hel"><span data-i18n="dolj.rules">Regler för maskeringen<i class="under-rad" id="inst-regler-om">—</i></span>
+      <div id="inst-regler"></div></div>
+  </div>
+  <label data-i18n="dolj.takeAwayAs">Text du tar med dig visas som
+    <div class="lagen bred" id="inst-beh" role="radiogroup" aria-label="Förvald behandling" data-i18n-attr="aria-label:dolj.defaultTreatmentAria"></div>
+  </label>
+  <p class="fotnotis" id="inst-lage-om"></p>
+</section>
+<section class="del" data-del="webben">
+  <h3 class="agent-rubrik" data-i18n="webben.title">Webben</h3>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="webben.search">Söka på nätet<i class="under-rad" data-i18n="webben.searchHelp">Auto: Maximus söker bara när frågan kräver något den inte kan veta, som dagens regler eller ett företags uppgifter. Personliga frågor söks aldrig, och känsliga frågor visas för dig först.</i></span>
+      <div class="lagen" id="inst-webb" role="radiogroup" aria-label="Webbsök" data-i18n-attr="aria-label:webben.searchAria">
+        <button type="button" data-lage="av" role="radio" aria-checked="true" data-i18n="allmant.off">Av</button>
+        <button type="button" data-lage="auto" role="radio" aria-checked="false">Auto</button>
+        <button type="button" data-lage="pa" role="radio" aria-checked="false" data-i18n="allmant.on">På</button>
+      </div>
+    </div>
+  </div>
+  <div class="har" id="vag-ruta">
+    <div class="har-rad"><span data-i18n="webben.hideWho">Dölj vem som söker<i class="under-rad" data-i18n="webben.hideWhoHelp">Maskeringen döljer VAD du frågar, men sökmotorn ser din internetadress. Med en proxy eller Tor ser den inte heller det. Gäller bara sökningar på webben.</i></span>
+      <div class="lagen" id="inst-vag" role="radiogroup" aria-label="Vägen ut" data-i18n-attr="aria-label:webben.routeAria">
+        <button type="button" data-lage="direkt" role="radio" aria-checked="true" data-i18n="webben.direct">Direkt</button>
+        <button type="button" data-lage="proxy" role="radio" aria-checked="false">Proxy</button>
+        <button type="button" data-lage="tor" role="radio" aria-checked="false">Tor</button>
+      </div>
+    </div>
+    <p class="under" id="vag-om"></p>
+    <div id="vag-adressrad" hidden>
+      <input type="text" id="inst-vag-adress" placeholder="socks5://10.64.0.1:1080" autocomplete="off" spellcheck="false">
+      <p class="fotnotis" data-i18n="webben.proxyHelp">Mullvad, NordVPN och de flesta företagsnät har en SOCKS5-proxy. Lösenord skrivs i adressen och sparas här på datorn, aldrig i en sökning.</p>
+    </div>
+    <div class="vag-prov">
+      <button type="button" class="tyst liten" id="vag-prova" data-i18n="webben.testRoute">Prova vägen</button>
+      <span id="vag-svar"></span>
+    </div>
+  </div>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="moln.title">Molnmodellen<i class="under-rad" id="skydd-moln-om">Av. Allt körs på den här datorn.</i></span>
+      <button type="button" class="strom" id="skydd-moln-knapp" data-i18n="allmant.change">Ändra</button></div>
+  </div>
+</section>
+</div>
+
+<div class="flik" data-flik="modell" hidden>
+  <p class="under" data-i18n="modell.intro">Modellen som svarar: på den här datorn, eller i molnet med allt maskerat först.</p>
+<section class="del" data-del="datorn">
+  <h3 class="agent-rubrik" data-i18n="modell.models">Modellerna</h3>
+  <p class="under" id="inst-modeller-om">Modellen körs på den här datorn. Välj en som passar maskinen.</p>
+  <div id="inst-modeller"></div>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="modell.current">Just nu</span><b id="inst-modell">—</b><button type="button" class="strom" id="inst-modell-knapp">Starta</button></div>
+    <button type="button" class="har-hamta" id="inst-webblasare">
+      <b data-i18n="modell.browser">Webbläsaren som slår upp</b><span id="inst-webblasare-om">—</span>
+    </button>
+  </div>
+</section>
+<section class="del" data-del="molnet">
+  <!-- Molnmodellen (Fas 51): för den som inte kan eller vill köra modellen
+       här. Allt maskeras före och återställs efter, på datorn. -->
+  <h3 class="agent-rubrik" data-i18n="moln.title">Molnmodellen</h3>
+  <p class="under" id="moln-om">Av. Allt körs på den här datorn.</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="moln.provider">Leverantör<i class="under-rad" id="moln-lev-om"></i></span>
+      <select id="moln-lev"></select></div>
+    <div class="har-rad"><span data-i18n="moln.model">Modell</span>
+      <input type="text" id="moln-modell" list="moln-modeller" spellcheck="false" autocomplete="off"><datalist id="moln-modeller"></datalist></div>
+    <div class="har-rad" id="moln-loggain-rad" hidden><span data-i18n="moln.account">Konto<i class="under-rad" id="moln-loggain-om">Logga in i webbläsaren. Nyckeln du får läggs i macOS nyckelring.</i></span>
+      <div class="rad-par"><button type="button" class="strom" id="moln-logga-in">Logga in</button>
+        <button type="button" class="tyst liten" id="moln-logga-ut" hidden data-i18n="allmant.signOut">Logga ut</button></div></div>
+    <div class="har-rad" id="moln-nyckel-rad"><span data-i18n="moln.apiKey">API-nyckel<i class="under-rad" id="moln-nyckel-om" data-i18n="moln.apiKeyHelp">Läggs i macOS nyckelring, aldrig i en fil.</i></span>
+      <div class="rad-par"><input type="password" id="moln-nyckel" placeholder="sk-…" spellcheck="false" autocomplete="off">
+        <button type="button" class="tyst liten" id="moln-glom" hidden data-i18n="moln.forgetKey">Glöm nyckeln</button></div></div>
+    <div class="har-rad"><span data-i18n="moln.use">Svara med molnmodellen<i class="under-rad" id="moln-pa-om">Frågan maskeras först och svaret återställs här. Varje anrop står i liggaren.</i></span>
+      <label class="vaxel"><input type="checkbox" id="moln-pa"><span></span></label></div>
+  </div>
+  <!-- Det som går ut (Auro 2026-10-09: "en funktion vi absolut måste ha").
+       Nivån och en förhandsvisning av exakt det som skulle skickas. Samma
+       del står som ett eget steg i onboardingen; ritas av molnMaskering(). -->
+  <p class="delrubrik" data-i18n="moln.outgoing">Det som går ut till molnet</p>
+  <div id="moln-maskering-del"></div>
+</section>
+<section class="del" data-del="bildljud">
+  <h3 class="agent-rubrik" data-i18n="modell.imageAudio">Bild och ljud</h3>
+  <div class="har">
+    <button type="button" class="har-hamta" id="inst-orat">
+      <b data-i18n="modell.transcriber">Modellen som transkriberar</b><span id="inst-orat-om">—</span>
+    </button>  </div>
+  <div class="har" id="syn-ruta">
+    <div class="har-rad"><span data-i18n="modell.vision">Låt modellen se bilder<i class="under-rad" data-i18n="modell.visionHelp">Utan det här läser Maximus av texten i en bild och modellen får texten. Med det ser modellen själva bilden — bra för diagram och skärmbilder. En extra fil på cirka 175 MB.</i></span></div>
+    <p class="under" id="syn-om"></p>
+    <div class="vag-prov">
+      <button type="button" class="tyst liten" id="syn-hamta" data-i18n="modell.downloadVision">Hämta bilddelen</button>
+      <span id="syn-svar"></span>
+    </div>
+  </div>
+</section>
+</div>
+
+<div class="flik" data-flik="kopplingar" hidden>
+  <p class="under" data-i18n="kopplingar.intro">Andra källor Maximus kan läsa från, och tillägget som maskerar text i webbläsaren.</p>
+  <div id="inst-kopplingar"></div>
+  <details class="har-fall" id="inst-tillagg">
+    <summary><span data-i18n="tillagg.title">Maskera i ChatGPT och Claude (webbläsartillägg)</span><b id="tillagg-lage">—</b></summary>
+    <div class="har-inre">
+      <p class="fotnotis" data-i18n="tillagg.intro">Tillägget maskerar texten innan den skrivs in hos ChatGPT,
+        Claude eller Copilot. Masken görs här av MAXIMUS — aldrig i webbläsaren. En
+        maskering kopierad in i ett tillägg är en andra maskering att hålla i takt
+        med den riktiga, och den dagen de glider isär är det tillägget som släpper
+        igenom ett personnummer.</p>
+      <p class="fotnotis kedjerubrik" data-i18n="tillagg.pairingCode">Parningskod — klistra in i tilläggets inställningar:</p>
+      <div class="kedjehuvud">
+        <code id="tillagg-kod">—</code>
+        <button type="button" class="tyst liten" id="tillagg-kopiera" data-i18n="allmant.copy">Kopiera</button>
+      </div>
+      <p class="fotnotis" data-i18n="tillagg.codeHelp">Koden är det enda som släpper in tillägget, och vägen den
+        öppnar kan en sak: maskera text. Inga sessioner, inga frågor, ingen liggare.
+        En kod på avvägar ska inte kunna bli en läsrättighet till dina ärenden.</p>
+      <div class="rad-knappar"><span></span><div>
+        <button type="button" class="tyst" id="tillagg-ny" data-i18n="tillagg.newCode">Ny kod</button>
+      </div></div>
+    </div>
+  </details>
+</div>
+
+<div class="flik" data-flik="data" hidden>
+  <p class="under" data-i18n="data.intro">Det du har sparat i Maximus, och vad som lämnat datorn.</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="allmant.sent">Skickat<i class="under-rad" data-i18n="data.sentHelp">Allt som lämnat datorn — när, vart och exakt vad. Ingen knapp tömmer listan; gamla rader kan gallras.</i></span>
+      <button type="button" class="strom" id="data-skickat" data-i18n="data.openSent">Öppna Skickat</button></div>
+  </div>
+  <details class="har-fall" id="sessgallring">
+    <summary><span data-i18n="data.autoDelete">Ta bort gamla samtal automatiskt</span><b id="sessgallring-nu">av</b></summary>
+    <div class="har-inre">
+      <p class="fotnotis" data-i18n="data.retentionHelp">Hur länge dina samtal ska ligga kvar är ditt beslut. Arbetar du
+        någonstans med arkivregler gäller de; annars gäller vad du själv tycker är rimligt.
+        MAXIMUS fattar inte beslutet — den verkställer det du fattat.</p>
+      <label data-i18n="data.keepFor">Behåll samtal i
+        <input type="number" id="sessgallring-dagar" min="0" max="36500" step="1" placeholder="0 = behåll allt" data-i18n-attr="placeholder:allmant.keepAllPlaceholder">
+      </label>
+      <p class="fotnotis" id="sessgallring-vad"></p>
+      <p class="fotnotis" id="sessgallring-varning" hidden></p>
+      <div class="rad-knappar"><span></span><div>
+        <button type="button" class="tyst" id="sessgallring-spara" data-i18n="allmant.saveDefault">Spara som förval</button>
+        <button type="button" class="primar farlig-knapp" id="sessgallring-kor" disabled data-i18n="allmant.pruneNow">Gallra nu</button>
+      </div></div>
+    </div>
+  </details>
+  <details class="har-fall" id="rensa">
+    <summary><span data-i18n="data.reset">Börja om från början</span><b data-i18n="data.resetHint">tar bort allt ditt arbete</b></summary>
+    <div class="har-inre">
+      <p class="fotnotis" data-i18n-html="data.resetHelp">Tar bort alla samtal med deras filer — också <b>Grunden</b>, de sessioner där
+        Maximus håller sin bild av dig och dina appar och som annars aldrig försvinner — alla projekt,
+        agentens uppdrag och fynd, frister och bevakningar. Liggaren står kvar — den är bokföringen över vad som
+        lämnat datorn och går inte att tömma med en knapp. Inställningar, profil, lösenord och
+        modeller står också kvar.</p>
+      <p class="fotnotis" id="rensa-svar" hidden></p>
+      <div class="rad-knappar"><span></span><div>
+        <button type="button" class="primar farlig-knapp" id="rensa-kor" data-i18n="data.clearAll">Rensa allt</button>
+      </div></div>
+    </div>
+  </details>
+</div>
+
+<div class="flik" data-flik="om" hidden>
+  <p class="under" data-i18n="om.intro">Version, plan och villkor.</p>
+  <div class="har">
+    <div class="har-rad"><span data-i18n="om.updates">Nya versioner<i class="under-rad" id="inst-upp-om">—</i></span>
+      <div class="rad-par">
+        <label class="vaxel"><input type="checkbox" id="inst-upp-pa"><span></span></label>
+        <button type="button" class="strom" id="inst-upp-kolla" data-i18n="om.checkNow">Kolla nu</button>
+      </div></div>
+    <!-- Öppen källkod (2026-10-09): ingen licensnyckel, ingen betalning. -->
+    <div class="har-rad hel"><span>Plan<i class="under-rad" data-i18n="om.planHelp">Fri och öppen källkod, Apache-2.0.</i></span>
+      <p class="under" data-i18n="om.planText">Källkoden går att läsa, ändra och dela.</p></div>
+    <div class="har-rad"><span data-i18n="om.terms">Villkoren<i class="under-rad" data-i18n="om.termsHelp">Det du godkände när du började.</i></span>
+      <button type="button" class="strom" id="om-villkor" data-i18n="om.readTerms">Läs villkoren</button></div>
+  </div>
+  <h3 class="agent-rubrik" data-i18n="om.whatLeaves">Vad som lämnar datorn</h3>
+  <ul class="om-ut">
+    <li data-i18n-html="om.leavesSearch"><b>En sökning på nätet</b>, när Söka på nätet inte är Av och frågan kräver det. Maskerad.</li>
+    <li data-i18n-html="om.leavesCloud"><b>Frågan till molnmodellen</b>, bara om du slagit på den. Maskerad; svaret återställs här.</li>
+    <li data-i18n-html="om.leavesPages"><b>En sida agenten läser</b> åt dig: LinkedIn i Safari, webbsidor du pekat ut, nyheter.</li>
+    <li data-i18n-html="om.leavesPhone"><b>En notis till telefonen</b>, om du valt det: via iCloud eller iMessage.</li>
+    <li data-i18n-html="om.leavesUpdate"><b>En koll efter ny version</b>, om Nya versioner är på: versionsnumret, inget annat.</li>
+  </ul>
+  <p class="fotnotis" data-i18n="om.leavesFoot">Varje gång står under Skickat, rad för rad.</p>
+</div>
+
+
+
+    </div>
+  </div>
+
+  <div class="yta" id="yta">
+    <div class="mitt" id="mitt">
+      <!-- Tomvyn ritas av app.js, inte här.
+           Här stod en egen rubrik ("Arbeta med känsliga uppgifter…") medan
+           app.js ritade en annan ("Fråga fritt."). Två texter för samma yta
+           blir två texter som glider isär, och den statiska visade aldrig
+           ingångarna — så första gången någon öppnade appen fanns inga
+           ledtrådar om vad den går att göra. En källa. -->
+    </div>
+  </div>
+
+  <div class="komp-yta">
+    <div class="komp-inre">
+      <button type="button" id="nerpil" aria-label="Till senaste" title="Till senaste" data-i18n-attr="title:komp.toLatest; aria-label:komp.toLatest"></button>
+      <!-- En fråga som väntar på sitt underlag.
+           Servern bygger frågan av sessionens filer. Går frågan iväg medan
+           en ljudfil fortfarande transkriberas finns filen inte där, och
+           modellen svarar sanningsenligt att ingenting bifogats — om en fil
+           som ligger synlig i rutan. -->
+      <div class="ko" id="ko" hidden>
+        <div class="ko-kropp">
+          <p class="ko-text"></p>
+          <p class="ko-fraga"></p>
+        </div>
+        <button type="button" class="tyst liten ko-nu" id="ko-nu" hidden data-i18n="komp.sendAnyway">Skicka ändå</button>
+        <button type="button" class="tyst liten" id="ko-bort" title="Lägg tillbaka frågan i rutan" data-i18n="allmant.undo" data-i18n-attr="title:komp.undoTitle">Ångra</button>
+      </div>
+      <!-- Inspelningen (2026-10-04). Mötet spelas in här, och när du stoppar
+           skrivs det ut och sammanfattas som en inlämnad ljudfil. Mätaren
+           visar att mikrofonen faktiskt hör något: en inspelning som tyst
+           blivit tom upptäcks annars först när mötet är slut. -->
+      <div class="inspelning" id="inspelning" hidden>
+        <span class="insp-prick" aria-hidden="true"></span>
+        <b class="insp-tid" id="insp-tid">0:00</b>
+        <span class="insp-niva" id="insp-niva" aria-hidden="true"><i></i></span>
+        <span class="insp-om" id="insp-om">Spelar in</span>
+        <button type="button" class="tyst liten" id="insp-paus">Pausa</button>
+        <button type="button" class="tyst liten" id="insp-kasta">Kasta</button>
+        <button type="button" class="primar liten" id="insp-stopp" data-i18n="insp.stopTranscribe">Stoppa och skriv ut</button>
+      </div>
+      <div class="bilagor" id="bilagor" hidden></div>
+      <div class="citat-ruta" id="citat" hidden></div>
+      <!-- MAXIMUS kan ha fel, och det ska stå där man skriver — inte i hjälpen.
+           Den som läser ett svar med slutsatsen i fetstil behöver se det
+           bredvid svaret, inte på en sida hon aldrig öppnar.
+
+           Raden bär också AI-förordningens artikel 50: den som interagerar
+           med ett AI-system ska informeras om det, om det inte är uppenbart.
+           Kravet är uppfyllt av samma mening som ändå måste stå där — att
+           lägga till en andra rad hade bara gjort båda lättare att sluta
+           läsa. Ordet "svarar" är med av det skälet: utan det säger raden
+           att appen kan ha fel, inte att en modell skrivit svaret. -->
+      <p class="komp-varning" data-i18n="komp.aiWarning">En AI-modell svarar, och den kan ha fel. Kontrollera alltid svaren.</p>
+      <form id="komp">
+        <!-- Kommandona, utfällda när man skriver "/" (Auro 2026-10-04: "som
+             här i cli!"). Fylls ur /api/funktioner — samma rader som /help. -->
+        <div class="kommandomeny" id="kommandomeny" role="listbox" aria-label="Kommandon" hidden data-i18n-attr="aria-label:komp.commandsAria"></div>
+        <input type="file" id="filval" multiple hidden
+               accept=".maximus,.pdf,.doc,.docx,.rtf,.odt,.txt,.md,.csv,.tsv,.xlsx,.xlsm,.ods,.json,.png,.jpg,.jpeg,.heic,.tiff,.m4a,.mp3,.wav,.aiff,.aif,.aac,.caf,.mp4,.mov,.flac,.ogg,.opus,.webm">
+        <textarea id="fraga" rows="1" placeholder="Skriv din fråga" autofocus data-i18n-attr="placeholder:komp.placeholder"></textarea>
+        <!-- Kontrollerna på egen rad under textrutan.
+             De låg bredvid den, och en lång lägesknapp klämde skrivytan smal.
+             När texten växte fastnade dessutom allt i botten medan rutan blev
+             kompakt. Egen rad ger texten hela bredden och gör att ingenting
+             flyttar sig när den växer. -->
+        <div class="komp-rad">
+        <button type="button" class="komp-knapp" id="bifoga" title="Bifoga dokument eller ljud" aria-label="Bifoga" data-i18n-attr="title:komp.attachTitle; aria-label:komp.attachAria"></button>
+        <button type="button" class="komp-knapp djupknapp" id="djup"
+                aria-pressed="false" title="Djupsökning — flera varv på webben, med källor"
+                aria-label="Djupsökning" data-i18n-attr="aria-label:komp.deepAria; title:djupsok.av"></button>
+        <button type="button" class="komp-knapp" id="spela-in" title="Tala i stället för att skriva — möte: ⌘⇧R"
+                aria-label="Spela in" aria-pressed="false" data-i18n-attr="aria-label:komp.recordAria; title:diktera.talaTitle"></button>
+        <!-- Två frågor, inte tre lägen.
+             Lokalt/Snabb/Noggrann blandade ihop VART texten går med HUR hårt
+             den behandlas. Tre knappar på rad såg ut som en skala, men steget
+             mellan de två första var skillnaden mellan att något lämnar
+             datorn och att inget gör det. Se lib/behandling.mjs. -->
+        <div class="lagesval" id="lagesval">
+          <button type="button" class="lage-knapp" id="lage-knapp" aria-haspopup="true" aria-expanded="false"
+                  aria-controls="lage-meny" title="Vart frågan går och vad som skickas"><span id="lage-namn">—</span><em class="lage-webb" id="lage-webb" hidden>Webb</em><em class="lage-webb" id="lage-minne">Isolerat</em></button>
+          <div class="lage-meny" id="lage-meny">
+            <!-- Destinationen är borta: ingenting lämnar datorn. Kvar är
+                 vad texten blir, och om webben får slås upp.
+                 Se lib/behandling.mjs för beslutet. -->
+            <p class="meny-rubrik" data-i18n="komp.menuTreatment">Vad du får att ta med dig</p>
+            <div class="meny-grupp" id="meny-beh" role="radiogroup" aria-label="Behandling" data-i18n-attr="aria-label:komp.treatmentAria"></div>
+            <!-- Tredje frågan: får MAXIMUS slå upp något?
+                 Märket på knappen visade läget men menyn lät en inte ändra
+                 det — inställningen låg i inställningarna, alltså långt från
+                 där den syns. Ett läge man ser men inte kan röra är en lampa,
+                 inte en kontroll. -->
+            <p class="meny-rubrik" data-i18n="webben.searchAria">Webbsök</p>
+            <div class="meny-grupp" id="meny-webb" role="radiogroup" aria-label="Webbsök" data-i18n-attr="aria-label:webben.searchAria"></div>
+            <!-- Fjärde: minnet (Fas 10). Isolerat som förval. -->
+            <p class="meny-rubrik" data-i18n="komp.memory">Minne</p>
+            <div class="meny-grupp" id="meny-minne" role="radiogroup" aria-label="Minne" data-i18n-attr="aria-label:komp.memory"></div>
+          </div>
+        </div>
+        <!-- Pilen medan man skriver, stoppmärket medan den svarar.
+             Knappen var avstängd under svaret och gjorde ingenting alls. Den
+             som ångrar sig mitt i ett långt svar hade ingen väg ut. -->
+        <button type="submit" class="komp-knapp" id="skicka" title="Granska och skicka" aria-label="Granska" data-i18n-attr="title:komp.granskaSkicka; aria-label:komp.granska">
+          <svg class="skicka-pil" viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16V4M5 9l5-5 5 5"/></svg>
+          <svg class="skicka-stopp" viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.6"/></svg>
+        </button>
+        </div>
+      </form>
+      <div class="komp-fot">
+        <p class="fotnot" id="fotnot">Ingenting skickas förrän du sett det och tryckt skicka.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Vad man kan göra med en markering. Knappen hette Citera och gjorde en
+     sak; nu är den en meny, för att en markering kan vara början på två
+     olika saker. Rutan bor i BODY men flyttas in i förstora-rutan när
+     markeringen ligger där — ett <dialog> som öppnats med showModal() lägger
+     sig i webbläsarens topplager, och allt utanför hamnar under det. -->
+<div class="markmeny" id="markmeny" hidden role="menu" aria-label="Med markeringen" data-i18n-attr="aria-label:markmeny.aria">
+  <button type="button" class="markval" id="citera" role="menuitem" data-i18n="markmeny.quote">Citera</button>
+  <span class="markmeny-linje" aria-hidden="true"></span>
+  <button type="button" class="markval" id="notera" role="menuitem" data-i18n="markmeny.note">Notering</button>
+</div>
+
+<!-- Noteringen skrivs här. prompt() finns inte i Tauris webbvy — den
+     returnerar null utan att visa något, och funktionen hade sett ut att
+     vara trasig. -->
+<div class="notskriv" id="notskriv" hidden>
+  <p class="notskriv-om" id="notskriv-om"></p>
+  <textarea id="notskriv-text" rows="3" maxlength="2000" placeholder="Vad vill du komma ihåg om det här?" data-i18n-attr="placeholder:notskriv.placeholder"></textarea>
+  <div class="notskriv-fot">
+    <button type="button" class="tyst" id="notskriv-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar" id="notskriv-spara" data-i18n="allmant.save">Spara</button>
+  </div>
+</div>
+
+<dialog id="maskruta">
+  <h2 data-i18n="maskruta.title">Maskerad version</h2>
+  <p class="under" data-i18n="maskruta.intro">Din fråga med namn, nummer och adresser utbytta. Ta med den dit du vill —
+    ingenting härifrån har lämnat datorn, och ingenting gör det när du stänger.</p>
+  <div id="maskruta-inre"></div>
+</dialog>
+
+
+<dialog id="liggare">
+  <h2 data-i18n="allmant.sent">Skickat</h2>
+  <p class="under" id="liggare-om">Varje nyttolast som lämnat datorn, i tur och ordning. Lokal — och krypterad när du satt ett lösenord.</p>
+
+  <div class="har">
+    <div class="har-rad"><span data-i18n="liggare.record">Bokför det som skickas<i class="under-rad" data-i18n="liggare.recordHelp">Av betyder att ingenting skrivs. Inte mindre — inget.</i></span>
+      <label class="vaxel"><input type="checkbox" id="liggare-pa"><span></span></label></div>
+    <div class="har-rad"><span data-i18n="liggare.export">Exportera</span><b id="liggare-export"></b></div>
+    <details class="har-fall" id="liggare-gallring">
+      <summary><span data-i18n="liggare.pruning">Gallring</span><b id="liggare-gallring-nu">av</b></summary>
+      <div class="har-inre">
+        <p class="fotnotis" data-i18n="liggare.retentionHelp">Hur länge poster ska sparas är ditt beslut. Arbetar du någonstans
+          med arkivregler gäller de; annars gäller vad du själv tycker är rimligt.
+          MAXIMUS fattar inte beslutet — den verkställer det du fattat.</p>
+        <label data-i18n="liggare.keepFor">Behåll poster i
+          <input type="number" id="gallring-dagar" min="0" max="36500" step="1" placeholder="0 = behåll allt" data-i18n-attr="placeholder:allmant.keepAllPlaceholder">
+        </label>
+        <p class="fotnotis" id="gallring-vad"></p>
+        <div class="rad-knappar"><span></span><div>
+          <button type="button" class="tyst" id="gallring-spara" data-i18n="allmant.saveDefault">Spara som förval</button>
+          <button type="button" class="primar farlig-knapp" id="gallring-nu" data-i18n="allmant.pruneNow">Gallra nu</button>
+        </div></div>
+      </div>
+    </details>
+  </div>
+
+  <details class="har-fall" id="liggare-kedja">
+    <summary><span data-i18n="liggare.chain">Kedjan</span><b id="kedja-lage"></b></summary>
+    <div class="har-inre" id="kedja-inre"></div>
+  </details>
+
+  <div id="liggare-lista"></div>
+  <div class="rad-knappar"><span></span><div><button type="button" class="primar" id="liggare-stang" data-i18n="allmant.close">Stäng</button></div></div>
+</dialog>
+
+
+<dialog id="lasupp">
+  <h2 id="lasupp-rubrik">Lås upp Maximus</h2>
+  <p class="under" id="lasupp-om">Lösenordet lagras inte. Utan det går ingenting att läsa — inte sessioner, inte det som skickats.</p>
+  <input type="password" id="lasupp-ord" autocomplete="current-password" placeholder="Lösenord" data-i18n-attr="placeholder:allmant.password">
+  <input type="password" id="lasupp-ord2" autocomplete="new-password" placeholder="Upprepa lösenordet" hidden data-i18n-attr="placeholder:lasupp.repeat">
+  <label class="vaxelrad">
+    <input type="checkbox" id="lasupp-minns" checked>
+    <span data-i18n="lasupp.remember">Kom ihåg på den här datorn<small data-i18n="lasupp.rememberHelp">Annars frågar MAXIMUS varje gång appen startas.</small></span>
+  </label>
+  <p class="fel" id="lasupp-fel" hidden></p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="lasupp-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar" id="lasupp-ok">Lås upp</button>
+  </div></div>
+</dialog>
+
+<!-- Att sätta locket.
+     Texten säger två obekväma saker rakt ut, och ska göra det: att koden är
+     svagare än lösenordet, och att tio fel stänger kodvägen. Ett lås som
+     överraskar sin ägare är ett dåligt lås. -->
+<dialog id="lockruta">
+  <h2 data-i18n="lockruta.title">Sätt en kod</h2>
+  <p class="under" data-i18n="lockruta.intro">Sex siffror som stänger Maximus när du lämnar datorn. Lösenordet öppnar alltid — koden är genvägen, inte ersättningen.</p>
+  <p class="fotnotis" data-i18n-html="lockruta.warning">Koden skyddar mot någon som sätter sig vid din dator. Den skyddar <b>inte</b> en kopierad datamapp: sex siffror är en miljon möjligheter, och den som har filen kan pröva dem i lugn och ro utan att räknaren nedanför gäller. Det är ditt <b>lösenord</b> som skyddar en kopia.</p>
+  <input type="password" id="lockruta-kod" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="Sex siffror" data-i18n-attr="placeholder:lockruta.codePlaceholder">
+  <input type="password" id="lockruta-kod2" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="Upprepa koden" data-i18n-attr="placeholder:lockruta.repeatCode">
+
+  <label data-i18n="skydd.closeAfter">Stäng Maximus efter
+    <select id="lockruta-efter">
+      <option value="5" data-i18n="tid.minuter" data-i18n-n="5">5 minuter</option>
+      <option value="15" selected data-i18n="tid.minuter" data-i18n-n="15">15 minuter</option>
+      <option value="30" data-i18n="tid.minuter" data-i18n-n="30">30 minuter</option>
+      <option value="60" data-i18n="tid.timmar" data-i18n-n="1">1 timme</option>
+      <option value="240" data-i18n="tid.timmar" data-i18n-n="4">4 timmar</option>
+      <option value="480" data-i18n="tid.timmar" data-i18n-n="8">8 timmar</option>
+      <option value="0" data-i18n="tid.never">Aldrig av sig själv</option>
+    </select>
+  </label>
+
+  <details id="lockruta-mer">
+    <summary data-i18n="lockruta.backupQuestion">Reservfråga om du glömmer koden</summary>
+    <p class="fotnotis" data-i18n="lockruta.backupHelp">Svaret öppnar samma maximus som koden. Det betyder att Maximus blir precis så säkert som svaret är svårt att gissa — ett husdjursnamn som står på din Facebook är ingen fråga, det är en dörr. Vill du ha en säker reservväg: hoppa över den här och lita på lösenordet.</p>
+    <input type="text" id="lockruta-fraga" autocomplete="off" maxlength="120" placeholder="Din fråga, t.ex. Vad hette min första lärare?" data-i18n-attr="placeholder:lockruta.questionPlaceholder">
+    <input type="text" id="lockruta-svar" autocomplete="off" maxlength="120" placeholder="Svaret" data-i18n-attr="placeholder:lock.answerPlaceholder">
+  </details>
+
+  <p class="fotnotis" data-i18n="lockruta.tenErrors">Tio fel i rad stänger kodvägen. Då krävs lösenordet — så att en miljon gissningar aldrig blir en kväll vid tangentbordet.</p>
+  <p class="fel" id="lockruta-fel" hidden></p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="lockruta-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar" id="lockruta-ok" data-i18n="skydd.setCode">Sätt kod</button>
+  </div></div>
+</dialog>
+
+
+<dialog id="fragaruta">
+  <h2 id="fragaruta-rubrik">—</h2>
+  <p class="under" id="fragaruta-om" hidden></p>
+  <input type="text" id="fragaruta-svar" autocomplete="off">
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="fragaruta-avbryt">Avbryt</button>
+    <button type="button" class="primar" id="fragaruta-ok">Klart</button>
+  </div></div>
+</dialog>
+
+
+<!-- Underlaget i helskärm.
+     Ett dokumentkort rymmer tjugo rader i en spalt på 760 px. Ett transkript
+     på fyrtiotusen tecken går att SE där, inte att läsa — och den som ska
+     markera ett stycke mitt i det får sikta i en ruta som rullar under
+     fingret. -->
+<dialog id="dokstor">
+  <div class="dokstor-topp">
+    <b id="dokstor-namn">—</b>
+    <div class="lagen" id="dokstor-vyer" role="radiogroup" aria-label="Vy" data-i18n-attr="aria-label:dokstor.viewAria"></div>
+    <span class="dokstor-mat" id="dokstor-mat"></span>
+    <button type="button" class="sess-ikon" id="dokstor-kopiera" title="Kopiera allt"
+            aria-label="Kopiera allt" data-i18n-attr="title:dokstor.copyAll; aria-label:dokstor.copyAll"></button>
+    <button type="button" class="sess-ikon" id="dokstor-stang" title="Stäng (Esc)"
+            aria-label="Stäng" data-i18n-attr="title:dokstor.closeTitle; aria-label:allmant.close"></button>
+  </div>
+  <div class="dokstor-text" id="dokstor-text" tabindex="0"></div>
+</dialog>
+
+
+<dialog id="delad">
+  <h2 id="delad-rubrik">Dela sessionen</h2>
+  <p class="under" id="delad-om">Filen är krypterad med koden nedan. Skicka koden på ett annat sätt än filen.</p>
+  <div class="delkod" id="delad-kod" hidden></div>
+  <p class="fotnotis forrader" id="delad-varning" hidden></p>
+  <input type="password" id="delad-in-kod" autocomplete="off" placeholder="Koden du fått" hidden data-i18n-attr="placeholder:delad.codePlaceholder">
+  <p class="fel" id="delad-fel" hidden></p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="delad-avbryt" data-i18n="allmant.close">Stäng</button>
+    <!-- Spara filen finns alltid; Dela… bara i appen, där macOS delningsmeny
+         finns att öppna. Se fragaDela() i app.js. -->
+    <button type="button" class="tyst" id="delad-spara" hidden data-i18n="delad.saveFile">Spara filen</button>
+    <button type="button" class="primar" id="delad-ok">Ladda ner filen</button>
+  </div></div>
+</dialog>
+
+<dialog id="kodoppna">
+  <h2 data-i18n="kodoppna.title">Förseglad session</h2>
+  <p class="under" data-i18n="kodoppna.intro">Innehållet är krypterat med din kod. Utan den finns det ingen väg in — inte heller för MAXIMUS.</p>
+  <input type="password" id="kodoppna-kod" inputmode="numeric" autocomplete="off" placeholder="Kod" maxlength="32" data-i18n-attr="placeholder:allmant.code">
+  <p class="fel" id="kodoppna-fel" hidden></p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="kodoppna-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar" id="kodoppna-ok" data-i18n="allmant.open">Öppna</button>
+  </div></div>
+</dialog>
+
+<dialog id="kodlas">
+  <h2 id="kodlas-rubrik" data-i18n="kodlas.title">Lås sessionen</h2>
+  <p class="under" data-i18n="kodlas.intro">En kod som bara du känner till. Rubriken döljs i listan.</p>
+  <input type="password" id="kodlas-kod" inputmode="numeric" autocomplete="off" placeholder="Kod" maxlength="32" data-i18n-attr="placeholder:allmant.code">
+  <div class="vaxlar" id="kodlas-styrkor">
+    <label class="vaxelrad styrkeval">
+      <input type="radio" name="styrka" value="last" checked>
+      <span data-i18n="kodlas.locked">Låst<small data-i18n="kodlas.lockedHelp">Koden är en grind i gränssnittet. Glömmer du den öppnar ditt lösenord sessionen ändå.</small></span>
+    </label>
+    <label class="vaxelrad styrkeval">
+      <input type="radio" name="styrka" value="forseglad">
+      <span data-i18n="kodlas.sealed">Förseglad<small data-i18n-html="kodlas.sealedHelp"><b>Glömmer du koden är sessionen borta för alltid.</b> Nyckeln finns ingen annanstans.</small></span>
+    </label>
+  </div>
+  <p class="fel" id="kodlas-fel" hidden></p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="kodlas-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar" id="kodlas-ok" data-i18n="skydd.lock">Lås</button>
+  </div></div>
+</dialog>
+
+<dialog id="fil">
+  <h2 id="fil-namn">Bilaga</h2>
+  <p class="under" id="fil-om"></p>
+  <div class="flik-rad" id="fil-flikar" role="tablist">
+    <button type="button" data-vy="maskerad" role="tab" aria-selected="true" data-i18n="fil.tabMasked">Så här skickas den</button>
+    <button type="button" data-vy="anonym" role="tab" aria-selected="false" data-i18n="fil.tabAnon">Anonymiserad</button>
+    <button type="button" data-vy="original" role="tab" aria-selected="false" data-i18n="fil.tabOriginal">Originalet</button>
+  </div>
+  <p class="fotnotis" id="fil-anon-om" hidden></p>
+  <div class="ruta-text lang" id="fil-text"></div>
+  <div class="rad-knappar">
+    <button type="button" class="tyst farlig" id="fil-bort" data-i18n="fil.remove">Ta bort bilagan</button>
+    <div>
+      <button type="button" class="tyst" id="fil-anonymisera" data-i18n="fil.anonymize">Anonymisera</button>
+      <button type="button" class="tyst" id="fil-export" data-i18n="fil.exportPdf">Exportera PDF</button>
+      <button type="button" class="primar" id="fil-stang" data-i18n="allmant.close">Stäng</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="bort">
+  <h2 data-i18n="bort.title">Ta bort sessionen?</h2>
+  <p class="under" data-i18n="bort.intro">Frågan, svaret och kartan raderas. Det går inte att ångra.</p>
+  <div class="rad-knappar"><span></span><div>
+    <button type="button" class="tyst" id="bort-avbryt" data-i18n="allmant.cancel">Avbryt</button>
+    <button type="button" class="primar farlig-knapp" id="bort-ja" data-i18n="allmant.delete">Ta bort</button>
+  </div></div>
+</dialog>
+
+</body>
+</html>

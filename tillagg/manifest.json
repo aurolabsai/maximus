@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "MAXIMUS",
+  "version": "4.0.0",
+  "description": "Maskerar personuppgifter innan de skrivs in hos en AI-tjänst, och stänger ute privatkonton.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://copilot.microsoft.com/*",
+    "https://m365.cloud.microsoft/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "bakgrund.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "panel.html",
+    "default_title": "MAXIMUS"
+  },
+  "options_page": "installningar.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://copilot.microsoft.com/*",
+        "https://m365.cloud.microsoft/*"
+      ],
+      "js": [
+        "innehall.js"
+      ],
+      "css": [
+        "innehall.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "128": "marke.png"
+  }
+}

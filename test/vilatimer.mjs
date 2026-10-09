@@ -1,0 +1,21 @@
+/// Vilan på timer (2026-10-04): förval 5 minuter, valet i Skydd.
+import { oppna, forbiStarten } from './hjalpare.mjs';
+const { p, ok, api, slut } = await oppna(process.argv[2]);
+await forbiStarten(p, api);
+await p.clock.install();
+await p.reload({ waitUntil: 'networkidle' });
+const synlig = () => p.evaluate(() => !document.querySelector('#vila').hidden);
+await p.clock.fastForward('04:30');
+ok(!await synlig(), 'efter 4,5 minuter: ingen vila (förval 5)');
+await p.clock.fastForward('01:00');
+ok(await synlig(), 'efter 5 minuter: vilan');
+await p.keyboard.press('Space'); await p.clock.fastForward('00:01');
+await api('/api/installningar', { vilaEfter: 0 });
+await p.reload({ waitUntil: 'networkidle' });
+await p.clock.fastForward('30:00');
+ok(!await synlig(), 'Aldrig: ingen vila efter 30 minuter');
+await p.fill('#fraga', '/installningar'); await p.keyboard.press('Escape'); await p.keyboard.press('Enter');
+await p.clock.fastForward('00:02');
+await p.locator('#instnav [data-flik="skydd"] .sess-oppna').click();
+ok(await p.locator('#inst-vila-efter').inputValue() === '0', 'valet syns under Skydd');
+await slut();

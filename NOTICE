@@ -1,0 +1,17 @@
+Maximus
+Copyright 2026 Aurolabs AB
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Maximus runs third-party software and models on your computer. They are not
+part of this source tree and keep their own licenses:
+
+- llama.cpp / llama-server (MIT) — runs the language model locally.
+- Node.js (MIT) — runs the local server.
+- Tauri (Apache-2.0 / MIT) — the desktop shell.
+- whisper.cpp (MIT) and KB-Whisper models (Apache-2.0) — speech to text.
+- Language models such as Google Gemma (Gemma Terms of Use), Qwen
+  (Apache-2.0), Llama (Llama Community License) and Mistral (Apache-2.0) are
+  downloaded on first use. Their licenses are shown in the app before download.
+- Optional cloud model providers (Berget AI, OpenAI, Anthropic, Google,
+  OpenRouter) are used only if you turn them on, under their own terms.

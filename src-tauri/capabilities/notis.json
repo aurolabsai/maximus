@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "notis",
+  "description": "Fönstret får visa en notis i Notiscenter i Maximus namn — och ingenting annat. Ett klick på den tar fram Maximus.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*"] },
+  "permissions": ["notification:allow-notify"]
+}

@@ -1,0 +1,47 @@
+:root { color-scheme: dark }
+body {
+  width: 300px; margin: 0; padding: 16px;
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+  color: #ececec; background: #1b1c1e;
+}
+header { display: flex; align-items: center; gap: 6px; margin: 0 0 16px }
+header .marke { width: 19px; height: 19px; opacity: .92 }
+header b { font-size: 15px; letter-spacing: -.2px; font-weight: 500 }
+.rad { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 14px }
+.rad b { display: block; font-weight: 500; font-size: 13px }
+.rad i { display: block; font-style: normal; font-size: 11.5px; color: #8b8e96; margin-top: 2px }
+.vaxel { flex: 0 0 auto; position: relative; width: 34px; height: 20px; margin-top: 1px }
+.vaxel input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer }
+.vaxel span {
+  position: absolute; inset: 0; border-radius: 999px; background: #2e3034;
+  transition: background .15s ease; pointer-events: none;
+}
+.vaxel span::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+  border-radius: 50%; background: #8b8e96; transition: transform .15s ease, background .15s ease;
+}
+.vaxel input:checked + span { background: #ececec }
+.vaxel input:checked + span::after { transform: translateX(14px); background: #1b1c1e }
+.fot { margin: 16px 0 12px; font-size: 11.5px; line-height: 1.6; color: #8b8e96 }
+.fot.varnar { color: #d8a13f }
+button {
+  width: 100%; padding: 8px; font: inherit; font-size: 12px;
+  color: #ececec; background: none; border: 1px solid #2e3034; border-radius: 4px; cursor: pointer;
+}
+button:hover { background: #232529 }
+
+/* Inställningssidan: samma möbler, mer plats. */
+body.bred { width: auto; max-width: 620px; padding: 32px 28px 48px; margin: 0 auto }
+body.bred h2 { font-size: 15px; font-weight: 550; margin: 30px 0 8px }
+body.bred p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.7; color: #8b8e96 }
+body.bred label { display: block; margin: 14px 0; font-size: 12px; color: #8b8e96 }
+body.bred input[type=text] {
+  display: block; width: 100%; margin-top: 6px; padding: 9px 11px; box-sizing: border-box;
+  font: inherit; font-size: 13px; color: #ececec; background: #232529;
+  border: 1px solid #2e3034; border-radius: 4px;
+}
+body.bred input[type=text]:focus { outline: none; border-color: #4a4d53 }
+.knappar { display: flex; align-items: center; gap: 12px; margin-top: 14px }
+.knappar button { width: auto; padding: 8px 16px }
+.knappar span { font-size: 12px; color: #8b8e96 }
+.knappar span.fel { color: #d8a13f }

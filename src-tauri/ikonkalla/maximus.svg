@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Appikonen: Labyrinten (public/marke.svg) på en platta i Lunar Lilac
+       (Fas 48, Auro 2026-10-05: "vi kör default Lilac. Även ikonen för appen
+       ska anpassas till den. Den är vår."). En lila metallic — ljus uppe
+       till vänster, djup nere till höger, med en glans som på lacken — och
+       märket i grafit. Marginalen följer macOS: plattan är 824 av 1024.
+       Rita om PNG:n och ikonerna med
+       node test/ikonen.mjs && npx tauri icon src-tauri/ikonkalla/maximus.png -o src-tauri/icons -->
+  <defs>
+    <linearGradient id="lack" x1="0.15" y1="0.05" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#d4cbfb"/>
+      <stop offset="0.38" stop-color="#9c8eec"/>
+      <stop offset="0.72" stop-color="#6b5ad3"/>
+      <stop offset="1" stop-color="#3f3192"/>
+    </linearGradient>
+    <radialGradient id="glans" cx="0.3" cy="0.18" r="0.62">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".42"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="kant" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#1b1640" stop-opacity=".35"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#lack)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#glans)"/>
+  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="url(#kant)" stroke-width="4"/>
+  <g transform="translate(232 232) scale(8.75)" color="#17161b">
+  <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt">
+  <path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/>
+  <path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/>
+  </g>
+  <circle cx="32" cy="32" r="3.6" fill="currentColor"/>
+  </g>
+</svg>

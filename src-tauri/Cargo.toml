@@ -1,0 +1,27 @@
+[package]
+name = "maximus"
+version = "1.0.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# macOS delningsmeny (NSSharingServicePicker): Mail, Meddelanden, AirDrop och
+# det som finns installerat. MIT. Se capabilities/dela.json.
+tauri-plugin-sharekit = "0.3"
+# Uppdateringar: hämtar en signerad version och installerar den efter
+# användarens ja, och startar om appen. MIT/Apache. Se capabilities/uppdatera.json.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# generate_context! bäddar in pluginkonfigurationen (updaterns publika nyckel)
+# som JSON, och koden den skriver använder serde_json.
+serde_json = "1"
+tauri-plugin-notification = "2"
+# Säkerhetsgranskningen 2026-10-09: nyckeln slumpas av operativsystemet
+# (getrandom, också på Windows) och skalet kräver att servern bevisar att den
+# har nyckeln (HMAC-SHA256 ovanpå sha2) innan nyckeln skickas. Båda fanns
+# redan i låsfilen genom tauri.
+getrandom = "0.3"
+sha2 = "0.10"

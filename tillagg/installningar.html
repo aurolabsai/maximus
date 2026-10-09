@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MAXIMUS — inställningar</title>
+<link rel="stylesheet" href="panel.css">
+<body class="bred">
+  <header>
+    <svg viewBox="0 0 64 64" aria-hidden="true" class="marke">
+      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="butt"><path class="lab-yttre" d="M32 56A24 24 0 1 1 50.39 47.43"/><path class="lab-inre" d="M32 20.5A11.5 11.5 0 1 1 22.58 25.4"/></g><circle cx="32" cy="32" r="3.6" fill="currentColor"/>
+    </svg>
+    <b>maximus</b>
+  </header>
+
+  <h2>Para ihop med MAXIMUS</h2>
+  <p>Masken görs av MAXIMUS på den här datorn — aldrig i webbläsaren. En maskering
+     kopierad in i ett tillägg är en andra maskering att hålla i takt med den
+     riktiga, och den dagen de glider isär är det tillägget som släpper igenom
+     ett personnummer.</p>
+  <p>Öppna MAXIMUS → Inställningar → Kopplingar → <b>Webbläsartillägg</b> och
+     kopiera koden dit.</p>
+  <label>Parningskod
+    <input type="text" id="parkod" placeholder="MAXIMUS-XXXX-XXXX" autocomplete="off" spellcheck="false">
+  </label>
+  <div class="knappar"><button type="button" id="para">Para ihop</button><span id="parsvar"></span></div>
+
+  <h2>Stäng ute privatkonton</h2>
+  <p>Sätter de huvuden leverantörerna själva stöder. Ingen TLS-inspektion,
+     ingen proxy, och tillägget läser inte ett tecken av trafiken — webbläsaren
+     sätter huvudet utan att visa det för oss.</p>
+  <p>Fyll bara i det ni använder. Tomma fält ger ingen regel.</p>
+
+  <label>ChatGPT — Workspace-id
+    <input type="text" id="workspace" placeholder="t.ex. 12345678-…" autocomplete="off" spellcheck="false">
+  </label>
+  <label>Claude — organisations-id
+    <input type="text" id="orgIds" placeholder="ett eller flera, komma emellan" autocomplete="off" spellcheck="false">
+  </label>
+  <label>Microsoft — tenant-id
+    <input type="text" id="tenants" placeholder="ett eller flera, komma emellan" autocomplete="off" spellcheck="false">
+  </label>
+  <div class="knappar"><button type="button" id="spara">Spara</button><span id="sparsvar"></span></div>
+<script src="installningar.js"></script>

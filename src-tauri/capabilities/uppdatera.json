@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "uppdatera",
+  "description": "Fönstret får fråga efter en ny version, hämta och installera den — bara en version vars signatur stämmer mot den publika nyckeln i konfigurationen — och starta om appen efteråt. Inget annat. Det sker bara efter användarens ja; se visaNyVersion i public/app.js.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*"] },
+  "permissions": ["updater:allow-check", "updater:allow-download-and-install", "process:allow-restart"]
+}

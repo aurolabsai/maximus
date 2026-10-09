@@ -1,0 +1,9 @@
+*.log
+node_modules
+src-tauri/resources
+src-tauri/target
+tmp
+src-tauri/llama
+
+# Byggs av scripts/hamta-verktyg.mjs (Fas 22)
+src-tauri/verktyg-bin

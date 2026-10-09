@@ -1,0 +1,36 @@
+{
+  "name": "maximus",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "En AI-arbetsyta som körs på din egen dator. Maskerar det som lämnar datorn, och en agent som aldrig skickar något i ditt namn.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "skrivbord": "tauri build",
+    "skrivbord:dev": "tauri dev",
+    "slapp": "node scripts/slapp.mjs",
+    "renamaskinen": "node scripts/rena-maskinen.mjs",
+    "signera": "node scripts/signera.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "gsap": "3.15.0"
+  },
+  "dependencies": {
+    "docx": "^9.8.1",
+    "playwright": "^1.63.0",
+    "pptxgenjs": "^4.0.1"
+  },
+  "overrides": {
+    "image-size": "^2.0.3"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aurolabsai/maximus.git"
+  }
+}

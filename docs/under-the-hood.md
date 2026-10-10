@@ -12,6 +12,7 @@ can check it yourself.
 | Local server | Node.js, bundled | 22.23.3 (pinned, sha256-checked) | MIT | Local process, `127.0.0.1` only | `server.mjs`, `lib/` |
 | Language model runtime | llama.cpp `llama-server`, Metal on Apple Silicon | build b11179 (pinned, sha256-checked) | MIT | Local process, UNIX socket with mode 0600 | `scripts/hamta-llama.mjs`, `lib/modell.mjs` |
 | Language model | Google Gemma 4, picked by memory: E2B below 16 GB, E4B at 16 GB, 12B at 24 GB+ (Q4 quantised GGUF). Qwen 3, Llama 3.1/3.2 and Mistral can be chosen instead. | — | Gemma Terms of Use / Apache-2.0 / Llama Community License | On your Mac | `lib/modeller.mjs` |
+| Name model (masking, second layer) | `Wismut/nym-pii-multilingual-small` (int8 ONNX) via `onnxruntime-node` and `@huggingface/tokenizers`; on by default, can be turned off | onnxruntime-node 1.30, tokenizers 0.2; model pinned by revision + sha256 | MIT | On your Mac | `lib/namnmodell.mjs` |
 | Image understanding | The model's own vision projector (mmproj), optional download | pinned revision + sha256 | Same as the model | On your Mac | `lib/modeller.mjs` |
 | Transcription (files, meetings) | whisper.cpp `whisper-cli` with KB-Whisper large (Swedish, KBLab) or Whisper large-v3-turbo | whisper.cpp v1.9.4; models pinned by revision + sha256 | MIT / Apache-2.0 | On your Mac | `scripts/hamta-verktyg.mjs`, `lib/dokument.mjs` |
 | Live dictation | Apple SpeechAnalyzer (DictationTranscriber), on-device | macOS 26 | Apple | On your Mac | `verktyg/diktera.swift` |

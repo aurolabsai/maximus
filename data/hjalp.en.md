@@ -34,7 +34,9 @@ The button next to the send arrow has three choices. The first two are saved
 on the conversation and become the default for the next new conversation.
 Memory applies only to the conversation.
 
-**What you get to take with you.** *Original*: the text as you wrote it.
+**What you get to take with you** — only when a cloud model answers. When
+the local model answers, the question does not leave the computer, and the
+button says *Local* instead of a choice. *Original*: the text as you wrote it.
 *Masked* (default): names, personal identity numbers, addresses, phone and
 account numbers are replaced with placeholders, and you see what was replaced.
 *Anonymized*: masked, and also rewritten so that amounts, dates and unusual
@@ -42,7 +44,13 @@ details become vaguer. If the rewrite doesn't happen, the card says so.
 
 The model on the computer always reads the original. The choice controls which
 text you can copy and take with you. What goes to the web or to the cloud
-model is always masked.
+model is always masked — search queries too when the model is local.
+
+If you want a text masked or anonymized, ask for it in the conversation:
+*Mask this text: …*, *Anonymize the attachment*, *Mask and anonymize your last
+answer*. It is done on the computer, and you get the text to copy, how many
+details were replaced and the map of what each placeholder stands for. Nothing
+leaves the computer for it, not even with the cloud model turned on.
 
 **Web search.** *Off*, *Auto* (default) or *On*. Auto looks things up when the
 question requires information the model can't have. The search query is

@@ -5,7 +5,8 @@
 // IT har lagt dit. Runtime hämtas en gång, kontrolleras mot nodejs.org:s
 // egna SHA256-summor, och läggs bredvid servern i paketet.
 //
-// MAXIMUS har inga beroenden, så det finns ingenting att installera.
+// Körberoendena räknas av npm (MODULER nedan) och kopieras ur node_modules;
+// ingenting installeras här.
 
 import { cp, mkdir, copyFile, readFile, writeFile, rm, stat, readdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -47,6 +48,23 @@ for (const m of MODULER) {
   await cp(`node_modules/${m}`, `${BACKEND}/node_modules/${m}`, { recursive: true });
 }
 console.log(`  moduler: ${MODULER.join(', ')} (utan webbläsare)`);
+
+/// Namnmodellens motor (2026-10-10): onnxruntime-node
+/// följer med via package.json som allt annat, men bär färdiga binärer för
+/// sex plattformar, 288 MB. Bara målet som byggs följer med — för en Mac med
+/// M-chip ca 85 MB. Modellen själv packas inte: den hämtas från en låst
+/// revision när användaren ber om den (lib/namnmodell.mjs).
+const ORT_BIN = `${BACKEND}/node_modules/onnxruntime-node/bin`;
+if (await stat(ORT_BIN).catch(() => null)) {
+  for (const napi of await readdir(ORT_BIN)) {
+    for (const plattform of await readdir(`${ORT_BIN}/${napi}`)) {
+      const dir = `${ORT_BIN}/${napi}/${plattform}`;
+      if (plattform !== process.platform) { await rm(dir, { recursive: true, force: true }); continue; }
+      for (const ark of await readdir(dir)) if (ark !== process.arch) await rm(`${dir}/${ark}`, { recursive: true, force: true });
+    }
+  }
+  console.log(`  onnxruntime-node: bara ${process.platform}-${process.arch}`);
+}
 
 /// Node-runtimen, fastnaglad (granskningen 2026-10-09).
 ///

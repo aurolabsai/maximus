@@ -61,3 +61,25 @@ test('nyheter: en post som inte säger sitt ämne läggs åt sidan', async () =>
   assert.equal(r.fynd[0].amne, 'Artificiell intelligens');
   assert.ok(r.undanlagt.some(f => /Handlar inte om/.test(f.varfor)));
 });
+
+// ── Ett nej från macOS säger vilken ruta som rättar det (2026-10-10) ────
+// Auro: "varför öppnas inte behörigheterna så jag kan ge dem?" Felet bar
+// bara text; listan visste inte att det var ett lov som saknades.
+test('macOS nej till kalendern: uppdraget vet vilken ruta i Systeminställningar', async () => {
+  const { nyttUppdrag, sammandrag } = await import('../lib/uppdrag.mjs');
+  const nej = () => { throw Object.assign(new Error('MAXIMUS fick inte läsa Kalender.'), { tillstand: true }); };
+  for (const kallor of [['kalender'], ['kalender', 'meddelanden']]) {
+    const u = nyttUppdrag({ instruktion: 'Håll koll på mötena', kallor });
+    const r = await slag(u, { las: async k => (k.typ === 'meddelanden' ? (() => { throw new Error('trasig'); })() : nej()), tanka: async () => '{}' });
+    assert.equal(r.uppdrag.fel.behorighet, 'kalender', kallor.join('+'));
+    assert.equal(sammandrag(r.uppdrag).felBehorighet, 'kalender');
+  }
+  // Full skivåtkomst för meddelandena.
+  const m = nyttUppdrag({ instruktion: 'Håll koll', kallor: ['meddelanden'] });
+  const rm = await slag(m, { las: async () => { throw Object.assign(new Error('Ingen Full skivåtkomst.'), { tillstand: true }); }, tanka: async () => '{}' });
+  assert.equal(sammandrag(rm.uppdrag).felBehorighet, 'fda');
+  // Ett vanligt fel är inget lov.
+  const v = nyttUppdrag({ instruktion: 'Håll koll', kallor: ['kalender'] });
+  const rv = await slag(v, { las: async () => { throw new Error('trasig'); }, tanka: async () => '{}' });
+  assert.equal(sammandrag(rv.uppdrag).felBehorighet, undefined);
+});

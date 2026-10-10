@@ -4,6 +4,8 @@ The complete user guide. Maximus is a local AI workspace for macOS: a language m
 
 The interface is in Swedish and English. This guide uses the English labels, with the Swedish one in parentheses the first time, e.g. **Settings → Agent (Agenten) → Sources (Källor)**.
 
+This guide describes `main`. Parts marked **(1.0.2)** are merged and tested but not yet in the released app (1.0.1); they ship with 1.0.2 once Apple notarization is done. What changed when is in the [changelog](andringar.md).
+
 Two roles, one app:
 
 - **The assistant** answers when you write. It works while you wait, in the conversation you are in.
@@ -154,6 +156,8 @@ The button next to send opens a menu with three groups. The button shows the tre
 
 **What you get to take with you** (Vad du får att ta med dig). This is the *treatment*. It controls what you get to copy out of Maximus, not what the local model sees.
 
+**(1.0.2)** The treatment is shown and applies only when a **cloud model** answers. With the local model, nothing leaves the computer for it to protect: the button says **Local** (Lokalt) and the menu has a status line, "Local · nothing leaves the computer", or "Local · only masked search queries leave the computer" when web search is on. Switching between local and cloud redraws the button at once, also mid-conversation; saved conversations keep their choice for when a cloud model answers. Search queries, page fetches and tool calls are masked as before, whatever the treatment. To get a masked text with the local model, ask for it (see [4.9](#49-asking-for-a-mask)).
+
 | Option | What it means |
 |---|---|
 | **Original** | Your text as written. Nothing to copy out, because there is no mask. |
@@ -251,6 +255,18 @@ Text in fetched pages that is written for the model rather than the reader, such
 - Typing `--` gives an en dash and `->` gives an arrow.
 
 ---
+
+### 4.9 Asking for a mask
+
+**(1.0.2)** Ask in the conversation, in Swedish or English:
+
+- *"Mask this text: …"* (Maskera den här texten)
+- *"Anonymize the attachment"* (Anonymisera bilagan)
+- *"Mask and anonymize your last answer"*
+
+Maximus recognises the request with rules, picks the text (what you pasted, the attachment, or the last answer), and does it on your Mac with the same masking as everything else (rules, then the [name model](#15-masking)); anonymizing is a rewrite by the local model, even when a cloud model is on. The result is a card: the text with **Copy the text**, the number replaced per kind, **the map** of what each placeholder stands for (shown on request; it stays on the Mac and does not come along when you copy), and export for an attachment. If nothing was found, the card says so. No web, no cloud, no row in Sent, because nothing left.
+
+The **Anonymize** button on a document card is also always local.
 
 ## 5. Files and recordings
 
@@ -379,7 +395,7 @@ Open it from the top-bar icon or the session's row menu: **Decision record as PD
   - Archive (Arkivera) / Back to ongoing
   - Delete (Ta bort). This cannot be undone.
 - **Multi-select.** Shift-click selects a range and ⌘-click picks one at a time. A bar then offers Archive, Project and Delete.
-- **Archive.** The agent can move finished conversations there; see [Work](#103-work-arbete). The reason is shown in the Archive, and anything you take back is never touched again.
+- **Archive.** The agent can move finished conversations there; see [Work](#105-tempo-and-work). The reason is shown in the Archive, and anything you take back is never touched again.
 
 ---
 
@@ -387,14 +403,14 @@ Open it from the top-bar icon or the session's row menu: **Decision record as PD
 
 | Command | What it does | Limits |
 |---|---|---|
-| `/post` | The latest 10 subject lines from the mailbox you chose. The first time, it asks for permission and which account. "Open N" (Öppna N) opens a mail as a conversation. | Reads only. Bodies are read only when you open a mail. A mail with a suggested reply is marked. Never deletes, moves or marks as read; sends only a reply you sent with **Send** (Skicka). |
-| `/kalender` | Meetings for the next 7 days, from Apple Calendar, including Google and Exchange accounts added there. "Open N" opens a meeting as a conversation: title, time, place, attendees, notes. | Never creates, moves, deletes or answers an invitation. |
+| `/post` (`/mail`) | The latest 10 subject lines from the mailbox you chose. The first time, it asks for permission and which account. "Open N" (Öppna N) opens a mail as a conversation. | Reads only. Bodies are read only when you open a mail. A mail with a suggested reply is marked. Never deletes, moves or marks as read; sends only a reply you sent with **Send** (Skicka). |
+| `/kalender` (`/calendar`) | Meetings for the next 7 days, from Apple Calendar, including Google and Exchange accounts added there. "Open N" opens a meeting as a conversation: title, time, place, attendees, notes. | Never creates, moves, deletes or answers an invitation. |
 
 An opened mail or meeting is an **attachment**, treated like a dropped document: masked when you take the masked version, and classified before any search goes out.
 
 **Replying to a mail.** In a conversation opened from a mail, the top bar says who it came from and offers **Write reply** (Skriv svar). That opens the reply box: recipient, subject (Re: …), the text (editable), and the Mail signature that will be added (chosen from Mail's signatures; none if you have none). **Shorter** (Kortare), **More formal** (Mer formellt) and **Friendlier** (Vänligare) rewrite the text on the local model. If the agent has a **Suggested reply** (Förslag på svar) for the mail, the box starts with it.
 
-**Send** (Skicka) is a button only you can press. The first time, Maximus asks: send directly from Maximus from now on, or open the draft in Mail as before? The choice is saved as the action **Send reply** (Skicka svar) under Settings → Agent → Actions, with **Ask every time** (Fråga varje gång), **Allowed** (Tillåtet) and **Open in Mail** (Öppna i Mail). Even Allowed needs your press. After the press the line **Sending in 10 s · Undo** (Skickas om 10 s · Ångra) shows. Undo means nothing is sent and the text stays. The countdown lives only in memory, so quitting Maximus during it sends nothing. Then Mail makes a real reply to the original (same thread, In-Reply-To, the right account), sets exactly the text you saw and the signature, and sends it. The ledger gets a **Sent** row with recipient, subject, time and text. If Mail or the network fails, Maximus shows the error, nothing is called sent, and the text stays. **Maximus never sends anything unless you press Send.**
+**Send** (Skicka) is a button only you can press. The first time, Maximus asks: send directly from Maximus from now on, or open the draft in Mail as before? The choice is saved as the action **Send reply** (Skicka svar) under Settings → Agent → Actions, with **Ask every time** (Fråga varje gång), **Allowed** (Tillåtet) and **Open in Mail** (Öppna i Mail). Even Allowed needs your press. After the press the line **Sending in 10 s · Undo** (Skickas om 10 s · Ångra) shows. Undo means nothing is sent and the text stays. The countdown lives only in memory, so quitting Maximus during it sends nothing. Then Mail makes a real reply to the original (same thread, In-Reply-To, the right account; **(1.0.2)** always the account the mail came to, and Maximus checks that the sender is one of that account's addresses before Mail sends), sets exactly the text you saw and the signature, and sends it. The ledger gets a **Sent** row with recipient, subject, time and text. If Mail or the network fails, Maximus shows the error, nothing is called sent, and the text stays. **Maximus never sends anything unless you press Send.**
 
 **Deadlines** (Frister). When the law text an answer relies on contains a time limit, such as "within three weeks of…", Maximus offers to **Watch** (Bevaka) it.
 
@@ -440,8 +456,8 @@ Settings → Agent → Sources. Everything is off until you turn it on.
 
 | Source | What it reads | Needs |
 |---|---|---|
-| Read your e-mail | One account and one mailbox (INBOX by default), the 60 latest messages | Mail automation permission |
-| Read your calendar | Upcoming meetings in all calendars | Calendar permission |
+| Read your e-mail | One account and one mailbox (INBOX by default), the 60 latest messages. **(1.0.2)** Any number of accounts, mailboxes per account, each with a label | Mail automation permission |
+| Read your calendar | Upcoming meetings in all calendars. **(1.0.2)** The calendars you tick, each with a label | Calendar permission |
 | Read your notes | One folder you choose, the 50 latest notes | Notes automation permission |
 | Read your messages | The 60 latest incoming iMessages and SMS | **Full Disk Access** |
 | Read your reminders | Open ones, plus those ticked off in the last 7 days | Reminders permission |
@@ -451,6 +467,10 @@ Settings → Agent → Sources. Everything is off until you turn it on.
 | Read web pages you point at | Pages you name; each fetch is logged | — |
 | News for you | News for the Home card; see [News](#12-news) | — |
 | Watch law changes | Shown once a law has been used in an answer | — |
+
+**Labels (1.0.2).** Each mail account and each calendar can carry a label (etikett): **Private** (Privat), **Work** (Jobb), a custom one (e.g. "the board"), or none. The default is guessed from the account's name and address when it is obvious (iCloud → Private). Everything from a labelled source counts as that label: the work account's mail is work. Only without a label does the model guess per item, and it sees the label in its prompt. A task's **Work or private** filter accepts custom labels too. A meeting proposal is suggested for a calendar with the same label as the material it came from. The conversation list and `/fynd` filter by label (`/fynd` → **Only <label>**).
+
+**Missing permission (1.0.2).** If macOS says no to a source, also when only one of several accounts was refused, the task row says *"<source>: macOS hasn't given Maximus permission. Click to grant it."* The task offers **Give Maximus access to <source>** (Ge Maximus lov till …), which opens the right pane in System Settings, resumes the task and runs it at once. You get one notification the first time, instead of three silent errors and a pause.
 
 ### 10.2 Tasks (Uppdrag)
 
@@ -541,7 +561,8 @@ Every round, the model either **raises** an item (lyfter fram) with a weight and
 - **Items the model did not mention are kept**, marked "Not assessed — kept to be safe."
 - **Setting aside never means hiding.** Set-aside items stay, with their reasons, in the task view and under `/fynd`. You can also ask the Agent conversation ("what happened last night?").
 - **Where findings land.** Raised findings land in the app's Foundation session when the task belongs to Foundation, otherwise in **Agent**, the conversation at the top of the side panel. Findings with a link, image and price become cards.
-- **Notifications.** "Notify when the agent finds something" is on by default. It shows in the window when Maximus is in front, otherwise in macOS Notification Center.
+- **Notifications.** "Notify when the agent finds something" is on by default. It shows in the window when Maximus is in front, otherwise in macOS Notification Center. **(1.0.2)** One notification per round, naming the tasks with something new, not one per task. Investigations and suggestions show only in the window, never on the phone.
+- **The material (1.0.2).** Each finding carries a reference to its original: the mail (with account and mailbox), the calendar event, the note, the file, the message or the address. When the agent opens a conversation about its findings, the turn carries a **card** per finding: title, source, an excerpt, **Show all** (Visa hela) for the whole original, and **Open in Mail** / **Open the file** / **Open the page**. The heading says "the assistant reads the same thing": follow-up questions get the same cards, and the assistant can read the rest of a long original in pieces instead of guessing from a 1,500-character clip. Originals are read locally, three at a time and at most fifteen seconds in all; anything not read in time is read at the follow-up. An original whose text tries to steer the model is shown by its title only: "The text tried to steer the model and was not read."
 
 ### 10.4 Investigations
 
@@ -599,7 +620,24 @@ The agent only ever drafts or suggests e-mail. A reply goes out only when you pr
 
 **Write a daily overview in the notes** appears once Notes reading is on. Despite the name, it is not once a day: after any round with new findings, it writes a *new* note "MAXIMUS <date time>" listing up to 20 unread findings. It never edits an existing note.
 
-### 10.7 Where you see the agent
+### 10.7 Suggestions and knock-knock (1.0.2)
+
+The agent as a colleague. Settings → Agent → Actions has two switches, both on by default when the agent is on.
+
+**Suggestions with reasons** (Förslag med skäl). After a round, at most every third hour, the local model reads what the agent found in the last two days (with the cards and labels) and your calendar two days back and forward, and suggests what you could do:
+
+| Kind | Taking it |
+|---|---|
+| **Reply** (Svara) | **Open the reply**: the reply box, from the account the mail came to. You press Send. |
+| **Schedule** (Boka) | **Prepare the meeting**: a meeting proposal for the calendar with the same label as the material. Nothing is saved before your yes. |
+| **Get in touch** (Hör av dig) | **Copy the draft**. Must be about someone in the material. A "get in touch" with the person who wrote a mail becomes a reply from the right account. |
+| **Follow up** (Följ upp) | About a mail: a reply from the account it came to. Otherwise **Copy the draft**. |
+
+The model picks what; rules do the rest. A suggestion without a reason or material is never shown. A mail the agent already wrote a suggested reply for gets no second one. Material that tried to steer the model carries no suggestion. Each suggestion shows its reason and the cards. Decline with **Not relevant**, **Already done** or **Don't ask about <topic>**; that is remembered and steers the next suggestions. Nothing is sent.
+
+**Knock-knock** (Knack-knack). Now and then the agent opens a short conversation: a question written by rules from what Maximus knows about you — a gap in your profile, a new sender that keeps turning up, something you stopped writing about, an old fact, how something is going. It only knocks when you are active at the computer (touched in the last two minutes), the window is not resting, and no conversation, dictation or meeting is going on. At most once every 1, 2, 3, 7 or 14 days (default: once a day), and never to the phone or Notification Center. Answer in your own words; whatever should change in [`/du`](#131-du-me-what-maximus-knows-about-you) is shown before and after and saved only after your yes, then at most two follow-up questions. **Not now**, **Never ask about this** and **Turn off knock-knock** are on every knock.
+
+### 10.8 Where you see the agent
 
 | Place | What |
 |---|---|
@@ -650,7 +688,9 @@ Turn it on with Settings → Agent → Sources → News for you, or from the car
 - **Refresh.** Every 3 hours.
 - **What leaves.** Only the topic words, masked. Each fetch is logged.
 - **Where it shows.** On Home, and in a News session.
-- **News is public.** When you bring a news item into a conversation, it is cited unmasked.
+- **News is public.** When you bring a news item into a conversation, it is cited unmasked. **(1.0.2)** The card says "Public source · <host>", and you are not asked whether to anonymize it. Your own questions in the same conversation follow your setting as before.
+
+**The digest (1.0.2).** News and the LinkedIn feed become one **digest** (sammanställning) per round instead of one finding per item: a few paragraphs grouped by topic, each with *why it matters to you* from your profile, and the sources in a box underneath. Every paragraph is checked against its sources, and a paragraph that doesn't hold is dropped. Only items aimed at you — your name, your company, a contact, a decision you're waiting for — are lifted out as findings of their own. News gets weight 2 at most and never reaches the phone unless it is aimed at you.
 
 ---
 
@@ -669,6 +709,16 @@ Your profile is built from what you already have. Set it up under Settings → Y
   - 30 days after your last import, you get a reminder to import the export again.
 - **What it never does.** Maximus **never writes, likes or contacts anyone in your name**. Your own posts count as yours.
 - **Privacy.** The profile stays on the Mac and never goes along with a search. With a cloud model it is always masked at the strict level.
+
+### 13.1 `/du` (`/me`): what Maximus knows about you
+
+**(1.0.2)** `/du`, `/me` or `/you` opens a summary of everything Maximus holds about you, fact by fact, grouped: who you are, what you work on, what interests you, what the agent watches for you and why, what you added, and conversations you let it remember. Each fact says where it came from: LinkedIn, your CV, the profile page in Safari, a link you gave, you, a task in your words, or a conversation. The list is built by rules, not by the model.
+
+**Correcting it.** Write as in a chat: *"I've left X"*, *"add that I'm on the board of Y"*, *"I'm not interested in Z any more"*, *"forget everything about Z"*. "Forget" is a rule; other corrections are read by the local model and then checked strictly (a new fact that carries nothing of what you wrote is dropped, and a date you didn't write is not invented: an end date becomes the current month, a start date is left out). Maximus shows a table of exactly what is added, changed and removed, before and after, with **Yes, change it**. Nothing changes without that yes, and the yes applies to exactly what you were shown: if anything changed in between, it is refused and you see a fresh preview.
+
+**What "forget" removes.** Z goes from your profile, what you added, and the LinkedIn/CV import, and also from the agent's own stores: findings, set-aside items, the colleague's memory (suggestions, answers, "don't ask about", questions), suggested replies, actions, the trace and the phone lines. The preview says how many items in which store. Your conversations are not touched. Sent gets a local row with the counts and ids, never the text.
+
+**After.** The You line in Foundation is rewritten, and the next answer and the agent's next round use the new profile. A knock-knock answer goes through the same preview and yes.
 
 ---
 
@@ -717,6 +767,7 @@ Settings → Model → In the cloud (I molnet). It is also offered in onboarding
 Masking is done on your Mac. It applies to everything that leaves (searches, cloud calls) and to the masked text you copy out.
 
 - **Rules** find personal identity numbers, coordination numbers, organisation numbers, phone numbers, addresses, postcode with town, account numbers, case numbers and e-mail.
+- **The name model (1.0.2)** is the second layer, after the rules: [nym-pii-multilingual-small](https://huggingface.co/Wismut/nym-pii-multilingual-small), a small token classifier (int8 ONNX, MIT licence, about 150 MB) run on your Mac with onnxruntime. It reads what has no format: unusual names, street addresses and ID-like strings, and at the Strict level also places and workplaces, never countries. Its finds are rounded to whole words and get the same kind of placeholder as the rules'. It only adds; it never removes a placeholder. It is downloaded with the language model at first start, from a locked revision, and every file is checked by size and sha256 before it loads; a file that doesn't match is deleted. A short text takes about 15 ms; a long document is read once in the background, paragraph by paragraph. If it is missing, off, or won't load (or the machine is not a Mac), the rules apply alone, and the log says so. Everything that leaves the computer waits for it to finish reading.
 - **The local model** fills in names and anything the rules miss.
 - **Labels** stay consistent: the same value gets the same label within a conversation, and the map back exists only on your Mac.
 
@@ -732,9 +783,10 @@ Settings → Protection (Skydd) → What is hidden (Vad som döljs):
   | **Cybersecurity** (Cybersäkerhet) | IPs, servers, paths, keys, links, organisations |
   | **Everything** (Allt) | Everything |
 
+- **Swedish/multilingual name model** (1.0.2): on by default. The row shows its state: on (name, licence, size), not downloaded (with **Download the name model**), or removed after a checksum mismatch. Off means the rules alone.
 - **Show exactly what is hidden** (Visa exakt vad som döljs) lists 16 types you can switch on and off. Personal identity and organisation numbers cannot be turned off. Any change shows as "Custom mix" (Egen blandning).
 - **Rules for the masking** (Regler för maskeringen) is not a place to write rules. It shows which signed pattern pack is in use. Only signed packs are applied.
-- **Text you take with you is shown as** (Text du tar med dig visas som) is the default treatment: Original, Masked (default) or Anonymized.
+- **Text you take with you is shown as** (Text du tar med dig visas som) is the default treatment: Original, Masked (default) or Anonymized. **(1.0.2)** It applies when a cloud model answers; with the local model, ask for a mask in the conversation ([4.9](#49-asking-for-a-mask)).
 
 Masking is a gate, not a guarantee. Someone determined can still re-identify a person from context. Maximus shows you the mask; you decide what is sensitive.
 
@@ -815,12 +867,13 @@ Open it from ··· → Sent, or Settings → Your data → Open Sent.
 
 ## 18. Slash commands
 
-Type `/` in the composer to fold out the list. Arrow keys choose, Enter or Tab runs, and Esc closes. A fully typed command runs as written.
+Type `/` in the composer to fold out the list. Arrow keys choose, Enter or Tab runs, and Esc closes. A fully typed command runs as written. Every command also has an English name that works in both languages: `/me`, `/mail`, `/calendar`, `/watch`, `/tasks`, `/finds`, `/record`, `/document`, `/deepdive`, `/tour`, `/clear`, `/settings`. The table uses the Swedish names.
 
 | Command | What it does | What it costs |
 |---|---|---|
 | `/help` | Everything Maximus can do, in four tables: Commands, Ask and material, What protects you, Order and watching | Nothing; no model runs |
 | `/rundtur` | The five-step tour with examples from your profile; the example you pick lands in the composer unsent | Nothing; no model runs |
+| `/du` (`/me`) **(1.0.2)** | What Maximus knows about you, and where each fact came from; correct it in plain words | The local model reads your correction; nothing changes without your yes |
 | `/post` | Latest subject lines in your mailbox; an opened mail becomes a conversation | Reads only; asks permission the first time |
 | `/kalender` | Meetings for the next 7 days; an opened meeting becomes a conversation | Reads only; never changes anything |
 | `/bevakning` | Deadlines and watched legal provisions, with what is new | Only the provision reference leaves when checked |
@@ -880,8 +933,8 @@ Settings has seven tabs. Each tab's sections also appear in the side panel as ju
 
 | Section | Row | What it does |
 |---|---|---|
-| Sources (Källor) | Read your e-mail (+ which account and mailbox) | See [Sources](#101-sources) |
-| | Read your calendar · notes (+ which folder) · messages · reminders · call list · a folder | |
+| Sources (Källor) | Read your e-mail (+ which accounts and mailboxes, each with a label **(1.0.2)**) | See [Sources](#101-sources) |
+| | Read your calendar (+ which calendars, each with a label **(1.0.2)**) · notes (+ which folder) · messages · reminders · call list · a folder | |
 | | Read LinkedIn in Safari · Read web pages you point at · News for you | |
 | | Watch law changes | Shown once a law has been used |
 | Work (Arbete) | Tempo | Calm / Normal / Full gas |
@@ -891,6 +944,8 @@ Settings has seven tabs. Each tab's sections also appear in the side panel as ju
 | | When the agent runs | Only while open / Open at login (+ start hidden) / In the background |
 | | The tasks | "Open Tasks" |
 | Actions (Handlingar) | Create reminders · Add meetings · Put mail drafts in Drafts · Write notes · Run Shortcuts | Ask every time / Allowed / Never |
+| | Suggestions with reasons **(1.0.2)** | On / off. See [Suggestions and knock-knock](#107-suggestions-and-knock-knock-102) |
+| | Knock-knock **(1.0.2)** | On / off, and at most once every 1, 2, 3, 7 or 14 days |
 | | Write a daily overview in the notes | Shown when Notes reading is on |
 | Notifications (Säger till) | Notify when the agent finds something | Window or Notification Center |
 | | To the phone (+ Where, Send a test) | Off / Reminder via iCloud / iMessage |
@@ -906,7 +961,7 @@ Settings has seven tabs. Each tab's sections also appear in the side panel as ju
 | | Rest after | 1–30 min or never |
 | | Open at rest | Start in rest |
 | | Remember the password on this computer | Keychain |
-| What is hidden (Vad som döljs) | Packages, Show exactly what is hidden, Rules for the masking | See [Masking](#15-masking) |
+| What is hidden (Vad som döljs) | Packages, Swedish/multilingual name model **(1.0.2)**, Show exactly what is hidden, Rules for the masking | See [Masking](#15-masking) |
 | | Text you take with you is shown as | Default treatment |
 | Web (Webben) | Search the web | Off / Auto / On |
 | | Hide who is searching (Dölj vem som söker) | Direct / Proxy (SOCKS5 or HTTP address, e.g. a VPN provider's) / Tor (a local Tor on 127.0.0.1:9050). "Test the route" shows the IP and country searches appear from. Applies to web searches only. |
@@ -968,7 +1023,8 @@ Settings has seven tabs. Each tab's sections also appear in the side panel as ju
 
 ## 22. What Maximus does not do
 
-- It does not send anything unless you press Send. It never sends messages, posts, likes, or contacts anyone in your name on its own.
+- It does not send anything unless you press Send. It never sends messages, posts, likes, or contacts anyone in your name on its own. The agent's suggestions are drafts.
+- It does not knock on your phone. Knock-knock happens only in the window, when you are at the computer.
 - It does not edit or delete your existing mail, notes, reminders or meetings.
 - It does not run when closed, unless you chose the background mode.
 - It does not follow the masked text to wherever you paste it. What the recipient does with it is your choice.

@@ -24,6 +24,24 @@
  "bevakning.morgonArenden": " — it concerns {antal} of your cases.",
  "bevakning.paragraf": "Section {p}",
  "bevakning.tva": "two",
+ "bifogat.beskuret": "{stycken} of {av} paragraphs, chosen for the question; the rest with las_underlag",
+ "bifogat.ingenText": "(no text to read, only the heading)",
+ "bifogat.ref.anteckning": "a note in Notes",
+ "bifogat.ref.bevakning": "a watch",
+ "bifogat.ref.fil": "the file {sokvag}",
+ "bifogat.ref.flode": "a post in the LinkedIn feed",
+ "bifogat.ref.kalender": "an event in the calendar",
+ "bifogat.ref.meddelande": "a message",
+ "bifogat.ref.mejl": "an email in {konto}, mailbox {lada}",
+ "bifogat.ref.okand": "unknown source",
+ "bifogat.ref.paminnelse": "a reminder",
+ "bifogat.ref.samtal": "a call in the call list",
+ "bifogat.ref.sida": "the page {url}",
+ "bifogat.rubrik": {
+  "en": "The material the agent attached (one card). This is what the conversation is about; read it before you answer. The whole original is read with las_underlag and the card's number.",
+  "flera": "The material the agent attached ({n} cards). This is what the conversation is about; read it before you answer. The whole original is read with las_underlag and the card's number."
+ },
+ "bifogat.utelamnad": "Text left out: it tried to steer the model.",
  "bollen.fortsatter": "Continuing: {vad}.",
  "dela.andrad": "The file was changed after it was packed: the sender or date doesn't match the contents.",
  "dela.felKod": "Wrong code.",
@@ -54,6 +72,113 @@
  "krypto.kodSaknas": "Code missing.",
  "krypto.losenordSaknas": "Password missing.",
  "krypto.nyckel32": "The key must be 32 bytes.",
+ "lib.banken.antal": {
+  "en": "{n}",
+  "flera": "{n}"
+ },
+ "lib.banken.etikett.arbetar": "Works on",
+ "lib.banken.etikett.bransch": "Industry",
+ "lib.banken.etikett.egen": "In your own words",
+ "lib.banken.etikett.exempel": "The examples rewritten for you",
+ "lib.banken.etikett.fakta": "Added",
+ "lib.banken.etikett.inlagg": "Your posts",
+ "lib.banken.etikett.intressen": "Interested in",
+ "lib.banken.etikett.kommentarer": "Your comments",
+ "lib.banken.etikett.kompetens": "Skill",
+ "lib.banken.etikett.kompetenser": "Skills",
+ "lib.banken.etikett.minne": "Memory",
+ "lib.banken.etikett.namn": "Name",
+ "lib.banken.etikett.ort": "Location",
+ "lib.banken.etikett.reaktioner": "Reactions",
+ "lib.banken.etikett.roll": "Role",
+ "lib.banken.etikett.rubrik": "Headline",
+ "lib.banken.etikett.sammanfattning": "Summary",
+ "lib.banken.etikett.text": "The text from your source",
+ "lib.banken.etikett.uppdrag": "Task",
+ "lib.banken.etikett.utbildning": "Education",
+ "lib.banken.etikett.vem": "Who",
+ "lib.banken.etikett.vill": "Wants to achieve",
+ "lib.banken.exempelFore": "rewritten for you",
+ "lib.banken.forslagRubrik": {
+  "en": "This is how the bank changes, {n} change. Nothing has changed yet.",
+  "flera": "This is how the bank changes, {n} changes. Nothing has changed yet."
+ },
+ "lib.banken.gor.andra": "Change",
+ "lib.banken.gor.bort": "Remove",
+ "lib.banken.gor.lagg": "Add",
+ "lib.banken.grupp.arbete": "What you work on",
+ "lib.banken.grupp.bevakar": "What the agent watches for you, and why",
+ "lib.banken.grupp.intressen": "What interests you",
+ "lib.banken.grupp.minne": "Conversations",
+ "lib.banken.grupp.tillagt": "What you added here",
+ "lib.banken.grupp.underlag": "The source material",
+ "lib.banken.grupp.vem": "Who you are",
+ "lib.banken.kalla.cv": "your CV",
+ "lib.banken.kalla.du": "you",
+ "lib.banken.kalla.duNar": "you, {nar}",
+ "lib.banken.kalla.forslag": "{kalla}, a suggestion you said yes to",
+ "lib.banken.kalla.lank": "a link you gave",
+ "lib.banken.kalla.linkedin": "LinkedIn",
+ "lib.banken.kalla.profil": "your profile (you wrote or approved it)",
+ "lib.banken.kalla.safari": "the profile page in Safari",
+ "lib.banken.kalla.samtal": "conversations you let me remember",
+ "lib.banken.kalla.uppdrag": "the task {namn}, in your words",
+ "lib.banken.kolumn.kalla": "Source",
+ "lib.banken.kolumn.uppgift": "Fact",
+ "lib.banken.lager.fynd": {
+  "en": "{n} finding",
+  "flera": "{n} findings"
+ },
+ "lib.banken.lager.handlingar": {
+  "en": "{n} action",
+  "flera": "{n} actions"
+ },
+ "lib.banken.lager.kollega": {
+  "en": "{n} entry in the colleague's memory (a suggestion, your answer or a question)",
+  "flera": "{n} entries in the colleague's memory (suggestions, your answers and questions)"
+ },
+ "lib.banken.lager.spar": {
+  "en": "{n} line in the agent's log",
+  "flera": "{n} lines in the agent's log"
+ },
+ "lib.banken.lager.svarsforslag": {
+  "en": "{n} reply suggestion",
+  "flera": "{n} reply suggestions"
+ },
+ "lib.banken.lager.telefon": {
+  "en": "{n} line about what went to the phone",
+  "flera": "{n} lines about what went to the phone"
+ },
+ "lib.banken.lager.undanlagt": {
+  "en": "{n} item the agent set aside",
+  "flera": "{n} items the agent set aside"
+ },
+ "lib.banken.lagerRubrik": "From what the agent itself has stored about you:",
+ "lib.banken.liggare": "Bank changed in /me: {lagg} added, {andra} changed, {bort} removed ({id})",
+ "lib.banken.liggareLager": "from the agent's stores: {lager}",
+ "lib.banken.minns": {
+  "en": "{n} conversation I remember across conversations",
+  "flera": "{n} conversations I remember across conversations"
+ },
+ "lib.banken.nu": "now",
+ "lib.banken.ovrigt.samtal": {
+  "en": "{om} is also mentioned in {n} conversation. I do not touch it here; delete the conversation in the list if it should go.",
+  "flera": "{om} is also mentioned in {n} conversations. I do not touch them here; delete the conversations in the list if they should go."
+ },
+ "lib.banken.ovrigt.uppdrag": "It is also in the task {namn}. Change it under /tasks.",
+ "lib.banken.ovrigtRubrik": "This does not change here:",
+ "lib.banken.rattaSaHar": "Something wrong? Write it here, as you would to a colleague: \"I have left X\", \"add that I am on the board of Y\", \"remove no. 4\" or \"forget everything about Z\". I show exactly what changes, and change it only when you say yes.",
+ "lib.banken.roll": "{titel} at {org} {tid}",
+ "lib.banken.somNamner": {
+  "en": "{n} mentioning {om}",
+  "flera": "{n} mentioning {om}"
+ },
+ "lib.banken.tecken": {
+  "en": "{n} character",
+  "flera": "{n} characters"
+ },
+ "lib.banken.tom": "I do not know anything about you yet. Tell me who you are and what you work on here, or import your LinkedIn export or a CV under Settings → You.",
+ "lib.banken.vagsMot": "Everything the agent finds is weighed against what you want to achieve: {vill}",
  "mallar.delForStor": "Part of the template ({del}) is too large.",
  "mallar.forMangaDelar": "The template has too many parts to be a template.",
  "mallar.forStorUppackad": "The template is too large when unpacked.",
@@ -103,11 +228,19 @@
  "projekt.aktor": "The project",
  "projekt.kvitto": "read {lista} — {tecken} characters went along with the question",
  "projekt.lista": "{forra} and {sista}",
+ "sammanstallning.fragan": {
+  "en": "The agent read one new post for {titel}. Here is the digest.",
+  "flera": "The agent read {n} new posts for {titel}. Here is the digest."
+ },
+ "sammanstallning.kallor": "Sources",
+ "sammanstallning.ovrigt": "Other",
+ "sammanstallning.varfor": "Why it matters to you:",
+ "svar.fel.avsandare": "Mail wanted to send the reply from an address outside the account {konto}. Nothing was sent.",
+ "svar.fel.mailSvaradeInte": "Mail did not confirm that the reply went out. Check the Outbox in Mail; the text is still here.",
+ "svar.fel.mottagare": "Mail wanted to reply to a different address than the one shown. Nothing was sent.",
+ "svar.fel.ofullstandigt": "The reply is missing a recipient, an email or text.",
  "uppdatering.nyttolast": "GET update manifest · version {version} · platform {plats}",
  "uppdatering.servern": "the update server",
  "uppdatering.svarade": "the server responded {status}",
- "zip.inteZip": "The file is not a zip.",
- "svar.fel.ofullstandigt": "The reply is missing a recipient, an email or text.",
- "svar.fel.mailSvaradeInte": "Mail did not confirm that the reply went out. Check the Outbox in Mail; the text is still here.",
- "svar.fel.mottagare": "Mail wanted to reply to a different address than the one shown. Nothing was sent."
+ "zip.inteZip": "The file is not a zip."
 }

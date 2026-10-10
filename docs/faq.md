@@ -34,7 +34,13 @@ If the model seems stuck, its own log is in `~/Library/Application Support/Maxim
 
 ### Why does macOS warn me when I open it?
 
-Because Maximus isn't notarized by Apple yet. Our Apple Developer enrollment is being processed; the first release after it will open without a warning. Until then, the first launch needs one manual step:
+Because Maximus isn't notarized by Apple yet. Our Apple Developer enrollment is being processed; the first release after it will open without a warning. Until then, either install from Terminal — no warning at all:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aurolabsai/maximus/main/install.sh | sh
+```
+
+— or open the disk image and take one manual step on the first launch:
 
 1. Open Maximus once. The warning only offers **Done** — click it.
 2. Go to **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway** next to *"Maximus was blocked…"*. Confirm with your password or Touch ID.
@@ -57,6 +63,22 @@ These settings only change what you can **copy out** of Maximus. The local model
 
 - **Masked** replaces names, ID numbers, addresses, phone numbers and account numbers with placeholders such as "Person A".
 - **Anonymized** does the same, and also rewrites identifying details (amounts, dates, unusual specifics) so they are vaguer.
+
+From 1.0.2 (in `main`, not yet released), the choice is shown only when a cloud model answers. See the next question.
+
+### Why don't I see Masked/Anonymized when using the local model?
+
+*(1.0.2)* Because nothing leaves the computer for it to protect. With the local model, the question is answered on your Mac, so the button in the composer says **Local** and the menu says "Local · nothing leaves the computer" (or that only masked search queries go out, when web search is on). Search queries, page fetches and tool calls are still masked as before. The choice comes back as soon as you switch to a cloud model, also in the middle of a conversation.
+
+If you want a masked or anonymized text anyway, ask for it: *"mask this text: …"*, *"anonymize the attachment"*, *"mask your last answer"*. It is done on your Mac, even with a cloud model turned on, and you get a card with the text to copy, how many details were replaced, and the map of what each placeholder stands for. Nothing is sent and no row is written to Sent, because nothing left.
+
+### What is the name model, and can I turn it off?
+
+*(1.0.2)* It is the masking's second layer. The rules go first and catch everything with a format (ID numbers, phone numbers, addresses, e-mail). After them, a small model on your Mac, [nym-pii-multilingual-small](https://huggingface.co/Wismut/nym-pii-multilingual-small) (MIT licence, about 150 MB, Swedish and other languages), reads for what has no format: unusual names, street addresses, and at the Strict level also places and workplaces. It only **adds** placeholders; it never removes one the rules set.
+
+It downloads together with the language model at first start (existing installs get a **Download the name model** button), from a locked revision, and every file is checked by size and sha256. A file that doesn't match is deleted. If the model is missing or won't load, the rules mask alone, as before. A short text takes about 15 ms; a long document is read once in the background.
+
+Turn it off under Settings → Protection → What is hidden → **Swedish/multilingual name model**. Off means the rules alone.
 
 ### How do I take a masked version to another AI?
 
@@ -121,9 +143,29 @@ A suggested reply is text in Maximus. Nothing is written in Mail and nothing is 
 
 By default each proposal waits for your **Yes**. You can change that per action under Settings → Agent → Actions.
 
+### Will the agent ever send something for me?
+
+No. The agent and the model can suggest; only you send. A suggested reply, a suggestion from the agent as a colleague, a meeting proposal — each is a draft. A mail goes out only when you press **Send** in the reply box (with ten seconds to undo), a meeting is prepared as a proposal and nothing is saved in Calendar before your yes, and a "get in touch" is a draft you copy. Maximus never sends messages, never posts or likes, and never contacts anyone in your name. Text in a mail or a page cannot press Send either: Send is not a tool the agent or the model has.
+
+### What are the agent's suggestions and the "knock-knock"?
+
+*(1.0.2)* **Suggestions with reasons**: from what the agent found in your mail, calendar, messages and LinkedIn, it suggests what you could do — reply, schedule, get in touch, follow up — and why, with the material attached. A suggestion without a reason or material is never shown. Take it, change it or decline it; declining with a reason ("not relevant", "already done", "don't ask about X") steers the next ones.
+
+**Knock-knock**: now and then the agent opens a short conversation ("How is X going?") to keep `/me` current. Only when you are active at the computer — not while Maximus is resting, not during a conversation, dictation or a meeting — at most once a day by default, and never to your phone or Notification Center. Your answer becomes a proposed change in `/me`, saved only after your yes. Both can be turned off under Settings → Agent → Actions, and **Not now** or **Never ask about this** works on every knock.
+
+### Can the agent read several mail accounts and calendars?
+
+*(1.0.2)* Yes. Under Settings → Agent → Sources (or in onboarding) choose any number of accounts, the mailboxes per account, and calendars, and give each a label: **Private**, **Work** or your own ("the board"). Everything from a labelled source counts as that label, so the model doesn't have to guess. Replies always go from the account the mail came to, and Maximus checks that the sender is one of that account's addresses before Mail sends. Conversations and `/finds` can be filtered by label.
+
 ### Why did the agent set something aside?
 
 It judged the item not relevant to you, and it always gives a reason. Nothing is hidden: set-aside items are listed with their reasons in the task view and under `/fynd`. Items the model did not assess are kept "to be safe".
+
+### Why did a task say macOS hasn't given Maximus permission?
+
+Because macOS said no when the agent tried to read that source: Calendar, Reminders, Mail, Notes, or Full Disk Access for Messages and the call list. Maximus can't give itself that permission; only you can, in System Settings. *(1.0.2)* The task row says *"{source}: macOS hasn't given Maximus permission. Click to grant it."*, and the task offers **Give Maximus access to …**. That opens the right pane in System Settings, and when you come back the task resumes and runs at once. You get one notification the first time, not three silent errors.
+
+Until Maximus is notarized, macOS may forget these permissions after an update and ask again.
 
 ### Does the agent run when Maximus is closed?
 
@@ -154,6 +196,18 @@ Text that comes from the phone gets no web search and cannot create tasks. Any a
 ### What is Foundation (Grunden)?
 
 Foundation is a set of sessions, one per app the agent reads (Inbox, Calendar, Notes, Messages, Reminders), plus **You** for your profile. Findings from each app land in that app's session. These sessions can only be removed with **Clear all**.
+
+### How do I see or correct what Maximus knows about me?
+
+*(1.0.2)* Type `/me` (`/du` in Swedish). You get a summary: who you are, what you work on, what interests you, what the agent watches for you and why, and where each fact came from — LinkedIn, your CV, you, or a conversation you let it remember.
+
+Then correct it in plain words, as in a chat: *"I've left X"*, *"add that I'm on the board of Y"*, *"forget everything about Z"*. Maximus shows exactly what will change, before and after, and changes nothing until you say yes — and the yes applies to exactly what you were shown. "Forget" removes Z from your profile and the LinkedIn import, and also from the agent's own stores (findings, set-aside items, suggestions, reply drafts, the phone lines), and the preview says how many items in which. Your conversations are not touched. Sent gets a local row with the counts, never the text.
+
+The model can misread a correction, for example guess a date you never wrote. That is why you always see the change before it is saved.
+
+### Why does the agent show the news as one digest?
+
+*(1.0.2)* Because nine articles about the same thing are one piece of news. Each round, the agent writes a digest of the news and your LinkedIn feed: a few paragraphs per topic, why it matters to you, and the sources underneath. Each paragraph is checked against its sources, and what doesn't hold is dropped. Only items aimed at you — your name, your company, a contact, something you're waiting for — become findings of their own. News never goes to your phone. A news item or page you open is public, so it is not masked and you are not asked to anonymize it.
 
 ### Does it post or like on LinkedIn?
 

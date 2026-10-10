@@ -32,7 +32,9 @@ Meddelanden och står också under Skickat.
 Knappen bredvid skicka-pilen har tre val. De två första sparas på samtalet och
 blir förval för nästa nya samtal. Minnet gäller bara samtalet.
 
-**Vad du får att ta med dig.** *Original*: texten som du skrev den.
+**Vad du får att ta med dig** — bara när en molnmodell svarar. Svarar den
+lokala modellen lämnar frågan inte datorn, och då står det *Lokalt* på
+knappen i stället för ett val. *Original*: texten som du skrev den.
 *Maskerat* (förval): namn, personnummer, adresser, telefon- och kontonummer
 byts mot platshållare, och du ser vad som byttes. *Anonymiserat*: maskerat,
 och dessutom omskrivet så att belopp, datum och ovanliga detaljer blir
@@ -40,7 +42,13 @@ vagare. Blir omskrivningen inte av står det i kortet.
 
 Modellen på datorn läser alltid originalet. Valet styr vilken text du kan
 kopiera med dig. Det som går till nätet eller till molnmodellen maskeras
-alltid.
+alltid — sökfrågor också när modellen är lokal.
+
+Vill du ha en text maskerad eller anonymiserad ber du om det i samtalet:
+*Maskera den här texten: …*, *Anonymisera bilagan*, *Maskera och anonymisera
+ditt förra svar*. Det görs på datorn, och du får texten att kopiera, hur många
+uppgifter som byttes och kartan över vad varje platshållare står för. Inget
+lämnar datorn för det, inte heller med molnmodellen påslagen.
 
 **Webbsök.** *Av*, *Auto* (förval) eller *På*. Auto slår upp när frågan
 kräver en uppgift modellen inte kan ha. Sökfrågan maskeras, och du ser den i

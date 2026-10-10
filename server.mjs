@@ -77,6 +77,7 @@ import * as Paminnelser from './lib/paminnelser.mjs';
 import * as Mappar from './lib/mappar.mjs';
 import * as Post from './lib/post.mjs';
 import * as Kalender from './lib/kalender.mjs';
+import * as Konton from './lib/konton.mjs';
 import * as Projekt from './lib/projekt.mjs';
 import * as Arende from './lib/arende.mjs';
 
@@ -118,6 +119,14 @@ import { VERSION } from './lib/version.mjs';
 /// Manifestet är statiskt och innehåller version, datum och en signerad
 /// filadress per plattform — formatet som tauri-plugin-updater läser.
 const UPPDATERINGSADRESS = Hemvist.UPPDATERING;
+
+/// 'dmg', 'karantan', 'ok' eller null (inte i appen, t.ex. provserver).
+function appPlats(app = process.env.MAXIMUS_APP || '') {
+  if (!app || !/\.app\//.test(app)) return null;
+  if (app.startsWith('/Volumes/')) return 'dmg';
+  if (app.includes('/AppTranslocation/')) return 'karantan';
+  return 'ok';
+}
 import { las, granskaUppstart, adresser, HJALP } from './lib/flaggor.mjs';
 import { nyckelLika, svarPaUtmaning, tillatenVard, utanHemligheter, notisArgument } from './lib/skydd.mjs';
 import { formaga, oppnaKommando, datakatalog, hitta } from './lib/plattform.mjs';
@@ -135,6 +144,8 @@ import { agentBehover } from './public/behov.js';
 import * as Funktioner from './lib/funktioner.mjs';
 import * as Aterkommer from './lib/aterkommer.mjs';
 import * as Fyndsamtal from './lib/fyndsamtal.mjs';
+import * as Underlag from './lib/underlag.mjs';
+import * as Sammanstallning from './lib/sammanstallning.mjs';
 import * as Hjalp from './lib/hjalp.mjs';
 import * as Felrapport from './lib/felrapport.mjs';
 import * as Djup from './lib/djup.mjs';
@@ -144,6 +155,7 @@ import { efterSvaret } from './lib/delar.mjs';
 import * as Locket from './lib/locket.mjs';
 import { PERSONAS, FORVAL as PERSONA_FORVAL, lista as personalista } from './lib/persona.mjs';
 import * as Behandling from './lib/behandling.mjs';
+import * as Maskbegaran from './lib/maskbegaran.mjs';
 import * as Bakgrund from './lib/bakgrund.mjs';
 import * as Handelser from './lib/handelser.mjs';
 import { slinga as Slinga } from './lib/slinga.mjs';
@@ -156,9 +168,12 @@ import * as Mote from './lib/mote.mjs';
 import * as Leverans from './lib/leverans.mjs';
 import * as Djupdykning from './lib/djupdykning.mjs';
 import * as Du from './lib/du.mjs';
+import * as Banken from './lib/banken.mjs';
+import * as Kollega from './lib/kollega.mjs';
 import * as Flode from './lib/flode.mjs';
 import * as Telefon from './lib/telefon.mjs';
 import { utatGrind } from './lib/failclosed.mjs';
+import * as Namnmodell from './lib/namnmodell.mjs';
 import * as Mallar from './lib/mallar.mjs';
 import * as Nyheter from './lib/nyheter.mjs';
 import * as Grunden from './lib/grunden.mjs';
@@ -394,6 +409,15 @@ function valet(s) {
     lage: s.lage || installningar.lage, utanMask: installningar.utanMask === true }) };
 }
 
+/// Behandlingen som gäller just nu: sessionens val när en molnmodell svarar,
+/// null när den lokala gör det (Auro 2026-10-10, se Behandling.gallande).
+/// Valet står kvar på sessionen och gäller igen när molnet slås på — mitt i
+/// ett samtal också, för det här läses vid varje anrop.
+///
+/// Det som ändå lämnar datorn med den lokala modellen — sökfrågor, sidor,
+/// verktygsanrop — läser aldrig det här. Det går genom grinden, alltid.
+const behandlingNu = s => Behandling.gallande(valet(s).behandling, { moln: molnPa() });
+
 const TOMMA_INSTALLNINGAR = { namn: '', lage: 'noggrann', policy: '',
   // `uppdateringar` saknas med avsikt (granskningen 2026-10-09): ett förval
   // `true` gjorde att frågan aldrig ställdes och appen ringde hem ändå.
@@ -514,6 +538,7 @@ async function aterlasInstallningar() {
   if (installningar.kontext && !K.kontext) satKontext(installningar.kontext);
   if (installningar.ora) satOra(installningar.ora);
   if (installningar.orafil) satEgetOra(installningar.orafil);
+  Namnmodell.satNamnmodell({ pa: installningar.namnmodell });
   await aterstallModellval();
   return installningar;
 }
@@ -541,6 +566,9 @@ catch { /* första starten */ }
 if (installningar.kontext && !K.kontext) satKontext(installningar.kontext);
 if (installningar.ora) satOra(installningar.ora);
 if (installningar.orafil) satEgetOra(installningar.orafil);
+// Namnmodellen (2026-10-10): på om inget annat sagts. Den laddas
+// först när maskeringen behöver den, se lib/namnmodell.mjs.
+Namnmodell.satNamnmodell({ pa: installningar.namnmodell });
 // Språket som gäller utanför anropen (hjärtslaget, agenten) från start.
 await Sprakstod.valtCachat(installningar.sprak).catch(() => {});
 await aterstallModellval();
@@ -813,10 +841,12 @@ const behovSvar = (res, b = agentBehov()) => json(res, 409, { error: behovText(b
 function agentUr(v) {
   if (!v || typeof v !== 'object') return null;
   const ut = {};
-  if (v.epost?.konto) ut.epost = { konto: String(v.epost.konto).slice(0, 120),
-    lada: String(v.epost.lada || 'INBOX').slice(0, 120) };
-  if (v.kalender) ut.kalender = { kalendrar: (Array.isArray(v.kalender.kalendrar) ? v.kalender.kalendrar : [])
-    .slice(0, 30).map(x => String(x).slice(0, 120)) };
+  // Flera konton och kalendrar, var och en med sin etikett (2026-10-10).
+  // Den gamla formen ({ konto, lada }, kalendrar som namn) läses också:
+  // lib/konton.mjs gör en lista med ett av den.
+  const epost = Konton.epostUr(v.epost);
+  if (epost) ut.epost = epost;
+  if (v.kalender) ut.kalender = Konton.kalenderUr(v.kalender);
   if (v.anteckningar?.mapp) ut.anteckningar = { konto: String(v.anteckningar.konto || '').slice(0, 120),
     mapp: String(v.anteckningar.mapp).slice(0, 120),
     // Skriv är ett eget beslut per mapp, och förvalet är läs.
@@ -859,16 +889,15 @@ function agentUr(v) {
 async function lasKalla(k, { nu = new Date() } = {}) {
   const a = agentInst();
   if (k.typ === 'epost') {
-    if (!a.epost?.konto) throw Agent.avstangd();
-    const brev = await Post.brev(a.epost.konto, { lada: a.epost.lada || 'INBOX', antal: 60, utskick: Boolean(k.nyhetsbrev) || Svar.forslagsLage(installningar) !== 'av' });
-    // Nyheternas källa (2026-10-09): bara utskick, aldrig personlig post —
+    if (!Konton.epostKallor(a.epost).length) throw Agent.avstangd();
+    // Varje konto och varje låda (2026-10-10), och varje brev bär sitt konto
+    // och kontots etikett: sfären sätts av källan, och ett svar går från
+    // just det kontot. Nyheternas källa (2026-10-09) tar bara utskick —
     // brev med List-Unsubscribe, eller en avsändare som är ett utskick.
-    if (k.nyhetsbrev) return brev.filter(b => b.utskick || Nyheter.arNyhetsbrev(b.fran, { avregistrering: b.utskick }))
-      .map(b => ({ id: b.id, titel: b.amne, fran: b.fran, tid: b.tid, text: b.amne, brev: { konto: a.epost.konto, id: b.id } }));
-    // Var brevet ligger (2026-10-10), så att agenten kan föreslå ett svar,
-    // och om det är ett utskick — de får aldrig något förslag.
-    return brev.map(b => ({ id: b.id, titel: b.amne, fran: b.fran, tid: b.tid, text: b.amne,
-      brev: { konto: a.epost.konto, id: b.id, lada: a.epost.lada || 'INBOX', utskick: b.utskick } }));
+    // Var brevet ligger, och om det är ett utskick: utskick får aldrig
+    // något förslag på svar.
+    return Konton.lasEpost(a.epost, { brev: Post.brev, antal: 60, nyhetsbrev: Boolean(k.nyhetsbrev),
+      utskick: Svar.forslagsLage(installningar) !== 'av' });
   }
   if (k.typ === 'kalender') {
     if (!a.kalender) throw Agent.avstangd();
@@ -876,14 +905,16 @@ async function lasKalla(k, { nu = new Date() } = {}) {
     // inte förrän veckan innan (sett i genomgången med Auro 2026-10-05).
     const fran = new Date(nu); fran.setHours(0, 0, 0, 0);
     const till = new Date(fran); till.setDate(till.getDate() + 14); till.setHours(23, 59, 59, 0);
-    const h = await Kalender.handelser({ fran, till });
+    // Bara de valda kalendrarna (2026-10-10), var och en med sin etikett.
+    // Inga valda: alla, utan etikett, som förut.
+    const h = (await Kalender.handelser({ fran, till })).map(x => ({ ...x, ...Konton.kalenderFor(a.kalender, x) })).filter(x => x.med);
     // `andrad` är med flit: ett möte som flyttas är nytt för dig, med samma
     // id. Se stampel() i lib/agent.mjs.
     // Kalenderhändelser heter `rubrik`, inte `titel`. Här stod x.titel, och
     // agenten såg varje möte som "(utan rubrik)" (sett 2026-10-05). Tid,
     // plats och kallade följer med, så att sorteringen vet vad mötet är.
     return h.map(x => ({ id: x.id || `${x.rubrik}@${x.start}`, titel: x.rubrik || x.titel || tx('srv.kalla.utanRubrik'),
-      tid: x.start, andrad: x.andrad || x.start,
+      tid: x.start, andrad: x.andrad || x.start, ...(x.etikett ? { etikett: x.etikett } : {}),
       text: [Kalender.somText(x), x.text || ''].filter(Boolean).join('\n').slice(0, 1500) }));
   }
   if (k.typ === 'bevakning') {
@@ -1164,7 +1195,7 @@ async function foreslaSvar({ konto, lada = 'INBOX', id, session = null, agenten 
   }
   // Din egen text (ett utkast ur samtalet): inget att fråga modellen om.
   if (egen != null && !agenten) {
-    const f = Svar.nyttForslag({ brev, konto, lada, text: egen, session });
+    const f = Svar.nyttForslag({ brev, konto, lada, etikett: Konton.kontoEtikett(agentInst().epost, konto), text: egen, session });
     if (fore) fore.status = 'ersatt';
     svarsforslag.push(f); await sparaSvarsforslag();
     return f;
@@ -1188,7 +1219,7 @@ async function foreslaSvar({ konto, lada = 'INBOX', id, session = null, agenten 
     { plats: 'agent', tak: 700, timeout: 180000 }));
   // Agenten tiger om brevet inte behöver svar; bad du själv får du en tom ruta.
   if (!text && agenten) return null;
-  const f = Svar.nyttForslag({ brev, konto, lada, text: text || '', varfor: slutsats, session });
+  const f = Svar.nyttForslag({ brev, konto, lada, etikett: Konton.kontoEtikett(agentInst().epost, konto), text: text || '', varfor: slutsats, session });
   if (fore) fore.status = 'ersatt';
   svarsforslag.push(f);
   await sparaSvarsforslag();
@@ -1268,7 +1299,65 @@ const svarsko = skapaKo({
 /// är varje handling ett förslag som väntar på ja (även "får göra"), ingen
 /// genväg körs, och las_sida läser bara träffar ur samma slingas sökningar.
 /// `webb: false` är samtalets eller turens eget nej till webben.
-async function agentSlinga({ uppgift, sammanhang = '', onSteg = () => {}, signal, session = null, tur = null, styrning = false, publika = [], steg = null, begransad = false, obevakad = true, webb = true } = {}) {
+/// Ett brev som text: avsändare, ämne, tid, bilagor och brödtexten, med
+/// tråden avskild. Samma form när du öppnar ett brev och när assistenten
+/// läser originalet bakom ett fynd.
+function brevSomText(brev) {
+  const delat = Post.delaTrad(brev.text);
+  return [
+    tx('srv.post.fran', { v: brev.fran }),
+    tx('srv.post.amne', { v: brev.amne }),
+    brev.tid ? tx('srv.post.tid', { v: brev.tid }) : null,
+    brev.bilagor.length ? tx('srv.post.bilagor', { v: brev.bilagor.join(', ') }) : null,
+    '',
+    delat.nytt || brev.text,
+    delat.citerat ? tx('srv.post.tidigareITraden', { citerat: delat.citerat }) : '',
+  ].filter(v => v !== null).join('\n').trim();
+}
+
+/// Originalet bakom ett fynd, via referensen (2026-10-10, lib/underlag.mjs).
+///
+/// Samma läsare och samma lov som agentens källor: kontot du gett agenten,
+/// mappen du pekat ut, kalendern och anteckningarna om de är på. Ingenting
+/// lämnar datorn här — ett mejl, en fil, en anteckning läses lokalt. En
+/// sida hämtas inte härifrån: det gör verktyget, genom webbens grind.
+/// Svarar null när originalet inte går att läsa; då gäller fyndets text.
+async function lasOriginal(ref) {
+  const a = agentInst();
+  if (ref?.sort === 'mejl') {
+    // Proven rör aldrig Mail (se PROV_SVAR nedan).
+    if (process.env.MAXIMUS_PROV === '1' || process.env.MAXIMUS_HANDLING_PROV === '1') return null;
+    // Ett av kontona OCH en av lådorna du gett agenten (granskningen
+    // 2026-10-10): en referens till Skickat i samma konto är inte inom lovet.
+    if (!Post.finns() || !Konton.epostKallor(a.epost).some(x => x.konto === ref.konto && x.lada === (ref.lada || 'INBOX'))) return null;
+    const brev = await Post.text(ref.konto, ref.id, { lada: ref.lada || 'INBOX' });
+    return brev ? brevSomText(brev) : null;
+  }
+  if (ref?.sort === 'fil') {
+    // Bara inom mapparna du gett lov till, med verkliga sökvägar på båda
+    // sidor (samma regel som las_fil i lib/verktyg.mjs).
+    const fil = await realpath(String(ref.sokvag || '')).catch(() => null);
+    for (const m of [...(a.mappar || []), ...(a.mapp ? [a.mapp] : [])]) {
+      const rot = await realpath(m.sokvag).catch(() => null);
+      if (rot && fil && fil.startsWith(rot + sep)) return (await lasDokument(basename(fil), await readFile(fil))).text.slice(0, 60000);
+    }
+    return null;
+  }
+  if (ref?.sort === 'anteckning') {
+    if (!a.anteckningar?.mapp) return null;
+    const n = (await Anteckningar.anteckningar(a.anteckningar.mapp, { konto: a.anteckningar.konto || null, antal: 200 })).find(x => String(x.id) === ref.id);
+    return n ? `${n.titel}\n\n${n.text}` : null;
+  }
+  if (ref?.sort === 'kalender') {
+    if (!a.kalender || !ref.tid || Number.isNaN(Date.parse(ref.tid))) return null;
+    const t = Date.parse(ref.tid);
+    const h = (await Kalender.handelser({ fran: new Date(t - 864e5), till: new Date(t + 864e5) })).find(x => (x.id || `${x.rubrik}@${x.start}`) === ref.id);
+    return h ? Kalender.somText(h) : null;
+  }
+  return null;
+}
+
+async function agentSlinga({ uppgift, sammanhang = '', onSteg = () => {}, signal, session = null, tur = null, styrning = false, publika = [], steg = null, begransad = false, obevakad = true, webb = true, underlag = [] } = {}) {
   await modellForAgenten();
   const lig = p => liggare({ ...p, anvandare: null, session, aktor: tx('srv.liggare.aktorAgenten') });
   const a = agentInst();
@@ -1277,10 +1366,12 @@ async function agentSlinga({ uppgift, sammanhang = '', onSteg = () => {}, signal
       const poster = await lasKalla(typeof typ === 'string' ? { typ } : typ);
       // Mejlen bär bara rubriken i listan. De fem första får sin text, så
       // att agenten kan läsa vad som står och inte bara vad det heter.
-      if (typ === 'epost' && a.epost?.konto) {
-        for (const p of poster.slice(0, 5)) {
-          p.text = await Post.text(a.epost.konto, p.id, { lada: a.epost.lada || 'INBOX' }).then(t => String(t?.text || t || '').slice(0, 1500)).catch(() => p.text);
-        }
+      // Ur det konto och den låda brevet ligger i (2026-10-10).
+      // Samtidigt och med en tidsgräns (punkt 10), som originalen.
+      if (typ === 'epost') {
+        const med = poster.filter(x => x.brev?.konto).slice(0, 5);
+        const texter = await Underlag.lasManga(med, p => Post.text(p.brev.konto, p.brev.id, { lada: p.brev.lada || 'INBOX' }).then(t => String(t?.text || t || '').slice(0, 1500)));
+        med.forEach((p, i) => { if (texter[i]) p.text = texter[i]; });
       }
       return poster;
     },
@@ -1316,6 +1407,11 @@ async function agentSlinga({ uppgift, sammanhang = '', onSteg = () => {}, signal
     safari: () => (begransad ? Promise.reject(new Error(tx('srv.verktyg.inteTelefon'))) : lasSafari()),
     lasFil: async fil => (await lasDokument(fil.split('/').pop(), await readFile(fil))).text.slice(0, 12000),
     genvagar: () => new Promise(los => execFileCb('/usr/bin/shortcuts', ['list'], { timeout: 15000 }, (e, ut) => los(e ? [] : String(ut).split('\n').filter(Boolean).slice(0, 80)))),
+    // Underlaget turen bär (2026-10-10): originalet via kortets referens.
+    // En sida går genom webbHamta ovan, med webbens val och liggaren.
+    underlag,
+    lasUnderlag: k => (k.ref?.sort === 'sida' ? ctx.webbHamta(k.ref.url).then(x => x?.text || k.reserv).catch(() => k.reserv)
+      : Underlag.lasHela(k, lasOriginal)),
   };
   // Handlingar (Fas 32): ett förslag, inte en handling — utom när du sagt
   // "får göra" om just den sortens handling.
@@ -1342,10 +1438,38 @@ async function agentSlinga({ uppgift, sammanhang = '', onSteg = () => {}, signal
 }
 
 /// Agentens modellanrop. Egen plats i modellen — se PLATSER i lib/lokal.mjs.
+// ── Företrädet och varvets tak (punkt 10, 2026-10-10) ──────────────────
+//
+// Agentens anrop delar modell med samtalet du för. Förut frågades
+// företrädet bara innan ett anrop började: en triage eller en
+// sammanfattning som redan pågick fick tugga klart i upp till tre minuter
+// medan ditt svar väntade. Nu avbryts det agenten håller på med när du
+// börjar skriva, och det som avbröts görs nästa varv.
+let agentKontroll = new AbortController();
+/// Ett fel som säger att samtalet tog över. Visas aldrig som fel.
+const foretradeFel = () => Object.assign(new Error('företräde'), { foretrade: true });
+/// Samtalet börjar: allt agenten har igång avbryts.
+function avbrytAgenten() {
+  agentKontroll.abort(foretradeFel());
+  agentKontroll = new AbortController();
+}
+/// Ett av agentens modellanrop, avbrytbart av samtalet. Ett avbrott blir
+/// `foretradeFel`, som var och en hanterar som "ett samtal pågår".
+async function agentAnrop(prompt, o = {}) {
+  const signal = agentKontroll.signal;
+  if (korningar.size > 0) throw foretradeFel();
+  try { return await svaraLokalt(prompt, { plats: 'agent', timeout: 180000, ...o, signal }); }
+  catch (e) { throw signal.aborted ? foretradeFel() : e; }
+}
+/// Hur länge ett varv får använda modellen innan resten av uppdragen väntar
+/// till nästa varv. Ett varv över tjugo uppdrag med triage, sammanfattning,
+/// sammanställning och rubriker var annars en halvtimme.
+const VARV_MS = 6 * 60e3;
+
 const agentTanka = async (prompt, { tak = 900 } = {}) => {
   await modellForAgenten();
   // Taket följer satsen (Agent.triageTak): 900 klippte 30 poster mitt i.
-  return svaraLokalt(prompt, { plats: 'agent', tak, timeout: 180000 });
+  return agentAnrop(prompt, { tak });
 };
 
 /// Läget i klartext för hjälpen: på eller av, aldrig vilket konto eller vem.
@@ -1401,9 +1525,23 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
   sandAlla({ typ: 'lista' });
   const hant = [];
   const svarJobb = [];
+  // Det som gör en nyhet eller ett inlägg riktat mot dig (2026-10-10): ditt
+  // namn, ditt företag. Läses en gång per varv, ur du.json och profilen.
+  let duFil = null; try { duFil = JSON.parse(await maximus.lasFil(join(dataDir, 'du.json'))); } catch { /* inget inläst */ }
+  const ankare = Sammanstallning.ankare({ du: duFil, profil: installningar.profil, namn: [installningar.namn] });
+  const varvStart = Date.now();
+  const overTak = () => !bara && Date.now() - varvStart > VARV_MS;
+  // macOS sa nej: en rad per källa och varv, i varvets notis (punkt 10).
+  const nekade = new Map();
   try {
     for (let u of [...uppdrag]) {
       if (bara && u.id !== bara) continue;
+      // Varvets tak (punkt 10): det som är dags men inte hinns med flyttas
+      // inte fram, och körs nästa varv. Det står i spåret.
+      if (overTak() && Uppdrag.farKoras(u, nu)) {
+        hant.push({ uppdrag: u.id, titel: u.titel, fynd: 0, skal: tx('srv.agent.varvetFullt', { min: VARV_MS / 60e3 }) });
+        continue;
+      }
       // "Kör nu" kör nu, också ett pausat uppdrag (Auro 2026-10-05: "om jag
       // vill köra nu så vill jag ju köra nu"). Det körs en gång och står
       // kvar som pausat — när det kör av sig självt är fortfarande ditt val.
@@ -1421,6 +1559,7 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
         // profilen är vem agenten sorterar åt. De är inte samma sak, och
         // triagen fick fel av de två i en månad.
         profil: malet(u),
+        ankare,
         // En händelse väntar in ett pågående samtal, som klockans varv gör;
         // bara "Kör nu" går före.
         samtalArbetar: bara && !handelse ? false : korningar.size > 0,
@@ -1428,6 +1567,9 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
       }).catch(e => ({ fel: e.message || String(e), uppdrag: u, fynd: [] }));
 
       if (r.inteDags) continue;
+      // macOS sa nej till en källa (2026-10-10): säg det EN gång, första
+      // gången, med vad som saknas. Raden i listan har knappen till rätt ruta.
+      if (r.uppdrag?.fel?.behorighet && r.uppdrag.fel.antal === 1 && !nekade.has(r.uppdrag.fel.behorighet)) nekade.set(r.uppdrag.fel.behorighet, u.titel);
       if (varPausad && r.uppdrag) r.uppdrag = { ...r.uppdrag, tillstand: 'pausad', nasta: fore.nasta };
       const i = uppdrag.findIndex(x => x.id === u.id);
       if (i >= 0 && r.uppdrag !== u) uppdrag[i] = r.uppdrag;
@@ -1435,8 +1577,15 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
       // Ett fynd blir ett samtal (Fas 12). Det agenten behållit — inte det
       // den lagt åt sidan, och inte det den aldrig bedömde.
       const behallna = (r.fynd || []).filter(f => !f.obedomd);
-      const fs = behallna.length ? await fyndsamtal(r.uppdrag || u, behallna, nu, { vagda: r.vagda || 0, undan: r.undanlagt?.length || 0 })
-        .catch(e => { hant.push({ uppdrag: u.id, titel: u.titel, fynd: 0, fel: tx('srv.agent.kundeInteOppnaSamtal', { fel: e.message }) }); return null; }) : null;
+      // Nyheter och flödet (2026-10-10): det som riktas mot dig blir ett eget
+      // fynd som förut; resten blir EN sammanställning för varvet.
+      const iSamman = behallna.filter(f => f.sammanstallning && !f.riktad);
+      const egna = behallna.filter(f => !iSamman.includes(f));
+      const oppnaFel = e => { hant.push({ uppdrag: u.id, titel: u.titel, fynd: 0, fel: tx('srv.agent.kundeInteOppnaSamtal', { fel: e.message }) }); return null; };
+      const varvet = { vagda: r.vagda || 0, undan: r.undanlagt?.length || 0 };
+      const fsEgna = egna.length ? await fyndsamtal(r.uppdrag || u, egna, nu, varvet, { snabb: overTak() }).catch(oppnaFel) : null;
+      const fsSamman = iSamman.length ? await fyndsamtal(r.uppdrag || u, iSamman, nu, varvet, { sammanstallning: true, snabb: overTak() }).catch(oppnaFel) : null;
+      const fs = fsEgna || fsSamman;
       if (r.undanlagt?.length) undanlagt = [...r.undanlagt, ...undanlagt].slice(0, UNDANTAK);
       // Brev som väntar på svar får ett förslag (2026-10-10), efter varvet.
       if (behallna.some(f => f.brev && !f.brev.utskick) && !(u.kallor || []).some(k => k.nyhetsbrev)) svarJobb.push([r.uppdrag || u, behallna.filter(f => f.brev && !f.brev.utskick)]);
@@ -1445,6 +1594,7 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
       hant.push({ uppdrag: u.id, titel: u.titel, fynd: r.fynd?.length || 0,
         undan: r.undanlagt?.length || 0, skal: r.skal || r.delvis || null, fel: r.fel || null, delvis: r.delvis || null,
         vantar: r.vantar || 0, kvar: r.kvar || 0, obedomda: r.oklara || 0,
+        ...(iSamman.length ? { sammanstallning: iSamman.length, riktade: egna.length } : {}),
         trasigt: Boolean(r.trasigt), samtal: fs?.id || null, samtalstitel: fs?.titel || null,
         vagda: r.vagda || 0,
         nasta: (r.uppdrag || u).nasta || null });
@@ -1454,16 +1604,19 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
     // Notis för det som lyftes fram (Fas 26). I fönstret när det är öppet,
     // annars i macOS Notiscenter, så att något som hänt medan appen var
     // stängd inte bara ligger och väntar.
-    for (const h of hant) if (h.fynd > 0 && h.samtal) {
-      // Till telefonen bara när något av det nya vägde tyngst (vikt 3).
-      const tungt = fynd.some(f => f.uppdrag === h.uppdrag && (f.vikt || 0) >= 3 && Date.parse(f.skapad) >= new Date(nu).getTime() - 6e4);
-      notifiera(`${h.titel}`, tx('srv.notis.sakerAttTitta', { n: h.fynd, ikapp: ikappSedan ? tx('srv.notis.ikapp') : '' }), h.samtal, { viktigt: tungt });
-    }
+    // EN notis per varv (punkt 10, 2026-10-10): förut en per uppdrag, en
+    // per nekad källa, en för undersökningen och en för kollegan — fyra
+    // ljud för ett varv. Till telefonen bara när något av det nya vägde
+    // tyngst (vikt 3) — och ur nyheterna och flödet bara det som riktas mot
+    // dig (Sammanstallning.narTelefonen).
+    const notis = varvetsNotis(hant, nekade, nu);
+    if (notis) notifiera(notis.titel, notis.text, notis.session, { viktigt: notis.viktigt });
     ikappSedan = null;
-    // Undersökningen (Fas 38) kör efter varvet, i bakgrunden, en åt gången.
+    // Efterarbetet (punkt 10): undersökningen (Fas 38), svarsförslagen och
+    // kollegans förslag efter varandra, i bakgrunden — inte tre jobb mot
+    // samma modellplats samtidigt. Vart och ett väntar in ett samtal du för.
     // Annars hade "Kör nu" väntat i minuter på något den inte bett om.
-    setTimeout(() => { if (!undersoker) { undersoker = true; arbeta([], new Date()).catch(() => {}).finally(() => { undersoker = false; }); } }, 1500);
-    if (svarJobb.length) setTimeout(async () => { for (const [x, f] of svarJobb) await foreslaSvarFor(x, f, nu).catch(() => {}); }, 2500).unref?.();
+    setTimeout(() => efterVarvet({ svarJobb, nu, kollega: !bara && !PROV_KOLLEGA }).catch(() => {}), 1500).unref?.();
     await anslagstavlan(hant, nu);
     // Städningen (Fas 41) på det vanliga varvet, inte när ett enda uppdrag körs.
     if (!bara) await stada(nu).catch(() => {});
@@ -1503,6 +1656,46 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
   return hant;
 }
 
+/// Varvets notis: en, vad som än hänt (punkt 10, 2026-10-10). Ett uppdrag
+/// med något nytt står med sitt namn; flera står som ett, med namnen i
+/// texten. En källa macOS nekade läggs till på slutet. `viktigt` (till
+/// telefonen) bara när något av det nya i varvet får gå dit.
+function varvetsNotis(hant, nekade = new Map(), nu = new Date()) {
+  const nya = hant.filter(h => h.fynd > 0 && h.samtal);
+  const ikapp = ikappSedan ? tx('srv.notis.ikapp') : '';
+  const lov = [...nekade].map(([kalla, titel]) => tx('srv.notis.behorighetText', { titel, kalla: bestamdKalla(kalla) }));
+  if (!nya.length) {
+    if (!lov.length) return null;
+    return { titel: tx('srv.notis.behorighetTitel', { kalla: [...nekade.keys()].map(bestamdKalla).join(', ') }), text: lov.join(' '), session: null, viktigt: false };
+  }
+  const t0 = new Date(nu).getTime() - 6e4;
+  const viktigt = fynd.some(f => nya.some(h => h.uppdrag === f.uppdrag) && Sammanstallning.narTelefonen(f) && Date.parse(f.skapad) >= t0);
+  let titel, text;
+  if (nya.length === 1) {
+    const h = nya[0];
+    titel = h.titel;
+    text = h.sammanstallning && !h.riktade ? tx('srv.notis.sammanstallning', { n: h.sammanstallning, ikapp }) : tx('srv.notis.sakerAttTitta', { n: h.fynd, ikapp });
+  } else {
+    titel = tx('srv.notis.fleraTitel', { n: nya.length });
+    text = tx('srv.notis.fleraText', { n: nya.reduce((a, h) => a + h.fynd, 0), uppdrag: nya.map(h => h.titel).join(', '), ikapp });
+  }
+  return { titel, text: [text, ...lov].join(' '), session: nya[0].samtal, viktigt };
+}
+
+/// Efter varvet, en sak i taget: undersökningen, svarsförslagen, kollegan.
+let efterPagar = false;
+async function efterVarvet({ svarJobb = [], nu = new Date(), kollega = true } = {}) {
+  if (efterPagar) return;
+  efterPagar = true;
+  try {
+    if (!undersoker) { undersoker = true; try { await arbeta([], new Date()); } catch { /* står i spåret */ } finally { undersoker = false; } }
+    for (const [x, f] of svarJobb) await foreslaSvarFor(x, f, nu).catch(() => {});
+    // Kollegans förslag (2026-10-10). Den väntar själv in tre timmar mellan
+    // varven; proven kör den själva.
+    if (kollega) await kollegaForeslar().catch(() => {});
+  } finally { efterPagar = false; }
+}
+
 // Ikapp-körningen först, sedan takten. Trettio sekunder in: modellen hinner
 // upp och den som just öppnat appen ska inte vänta en kvart på att få veta
 // vad som hänt medan hon var borta.
@@ -1535,7 +1728,16 @@ async function undersokFynd(f, { nu = new Date() } = {}) {
   const tid = new Date(nu).toISOString();
   const s = { id: randomUUID(), titel: tx('srv.undersokning.titel', { titel: f.titel }).slice(0, 80), skapad: tid, andrad: tid, agare: null,
     projekt: u?.projekt || null, turer: [], karta: [], raknare: {}, avAgenten: true, a2a: true, uppdrag: f.uppdrag || null,
+    etiketter: f.sfar ? [f.sfar] : [],
     minne: 'isolerat', webb: 'av', behandling: Behandling.stall(installningar.behandling) };
+  // Underlaget först (Auro 2026-10-10): det du ser i samtalet är vad
+  // agenten undersöker — kortet med referensen till originalet — och inte
+  // bara agentens fråga utan det den syftar på. Originalet läses lokalt.
+  const kort = Underlag.kort(f);
+  const [original] = await Underlag.lasManga([kort], k => Underlag.lasHela(k, lasOriginal));
+  if (!kort.pakallande && original) kort.utdrag = Underlag.kort(f, { text: original }).utdrag;
+  s.turer.push({ id: randomUUID(), tid, fraga: '', av: 'maximus', avAgenten: true, status: 'klar', svar: '',
+    sager: tx('srv.undersokning.underlag', { titel: f.titel }), underlag: [kort], kvitto: [], kallor: [] });
   sessioner.set(s.id, s); await spara(s);
   f.session = s.id; f.undersokning = s.id; f.undersokt = tid;
   sandAlla({ typ: 'lista' });
@@ -1544,9 +1746,11 @@ async function undersokFynd(f, { nu = new Date() } = {}) {
   const tillgang = [a.epost?.konto && bestamdKalla('epost'), a.kalender && bestamdKalla('kalender'), a.paminnelser && bestamdKalla('paminnelser'), a.anteckningar?.mapp && bestamdKalla('anteckningar'),
     a.meddelanden && bestamdKalla('meddelanden'), (a.mappar?.length || a.mapp) && tx('srv.kalla.mapparna', { mappar: [...(a.mappar || []), ...(a.mapp ? [a.mapp] : [])].map(m => m.sokvag.split('/').pop()).filter((v, i, x) => x.indexOf(v) === i).join(', ') }),
     (a.sidor || installningar.webb !== 'av') && tx('srv.kalla.webben')].filter(Boolean).join(', ');
-  const r = await A2A.undersok({ fynd: f, uppdrag: u?.instruktion || '', profil: Profil.somText(malet(u)) || '', tillgang,
+  const r = await A2A.undersok({ fynd: f, underlag: { kort, text: original }, uppdrag: u?.instruktion || '', profil: Profil.somText(malet(u)) || '', tillgang,
     agent: o => verktygsanrop({ meddelanden: o.meddelanden, verktyg: [], tak: 400 }),
-    assistent: (fraga, om) => agentSlinga({ uppgift: fraga, sammanhang: om, session: s.id, obevakad: true }),
+    // Kortet följer med, så att assistenten kan läsa resten av originalet
+    // (las_underlag) och inte bara det som valdes mot frågan.
+    assistent: (fraga, om) => agentSlinga({ uppgift: fraga, sammanhang: om, session: s.id, obevakad: true, underlag: [kort] }),
     onRad: async rad => {
       if (rad.av === 'agent') {
         oppen = { id: randomUUID(), tid: new Date().toISOString(), fraga: rad.text, av: 'agent', avAgenten: true, svar: '', status: 'igang', kvitto: [], kallor: [] };
@@ -1573,7 +1777,10 @@ async function undersokFynd(f, { nu = new Date() } = {}) {
   ag.turer.push(rad); ag.andrad = rad.tid; await spara(ag);
   sand(ag.id, { typ: 'agenttur', session: ag.id, tur: rad });
   sandAlla({ typ: 'lista' });
-  notifiera(tx('srv.notis.undersokt', { titel: f.titel }), sl.text.slice(0, 140), s.id, { viktigt: true });
+  // I fönstret, inte en notis till: fyndet fick redan varvets notis (och
+  // telefonen, om det vägde så). En undersökning är något att läsa när du
+  // ändå sitter där (punkt 10: en notis per varv).
+  sandAlla({ typ: 'notis', titel: tx('srv.notis.undersokt', { titel: f.titel }), text: sl.text.slice(0, 140), session: s.id });
   await sparaFynd();
   return { session: s.id, slutsats: sl, varv: Math.floor(r.rader.length / 2) };
 }
@@ -1650,11 +1857,303 @@ async function duForslag(du) {
   for (let i = 0; i < 3; i++) {
     const r = await svaraLokalt(Du.profilPrompt(Du.somText(du)), { plats: 'efterat', tak: 900, timeout: 240000 }).catch(() => '');
     const f = Profil.lasForslag(r);
-    if (f && (f.vem || f.arbetar)) return f;
+    if (f && (f.vem || f.arbetar)) {
+      // Förslagets avtryck (/du, 2026-10-10): sparar du det som det står
+      // vet banken att fältet kom ur LinkedIn eller cv:t, inte ur dig.
+      // Bara avtrycket — texten står redan där den ska.
+      if (du.kalla && du.kalla !== 'text') {
+        await maximus.andraFil(join(dataDir, 'du.json'), d => (d ? { ...d, forslag: { kalla: du.kalla, avtryck: Banken.forslagsavtryck(f) } } : undefined)).catch(() => {});
+      }
+      return f;
+    }
     await new Promise(v => setTimeout(v, 4000));
   }
   return null;
 }
+
+// ── Banken: /du (2026-10-10) ──────────────────────────────────────────────
+//
+// Vad Maximus vet om dig, på ett ställe, och rättat i fri text. Se
+// lib/banken.mjs. Inget här lämnar datorn: tolkningen och sammanfattningen
+// går till den lokala modellen (baraLokalt), och ett förslag ligger bara i
+// minnet tills du sagt ja eller nej.
+
+/// du.json som det står, eller null.
+async function lasDu() {
+  try { return JSON.parse(await maximus.lasFil(join(dataDir, 'du.json'))); } catch { return null; }
+}
+
+/// Det banken består av just nu, och raderna ur det.
+async function bankLage(jag) {
+  const du = await lasDu();
+  const lage = { profil: Profil.las(installningar.profil), du, exempel: installningar.exempel || null };
+  const minns = [...sessioner.values()].filter(x => (x.agare || null) === (jag?.id || null) && x.minne === 'minns' && !x.las && !x.forseglad).length;
+  const rader = Banken.uppgifter({ ...lage, uppdrag: uppdrag.map(u => ({ id: u.id, titel: u.titel, instruktion: u.instruktion })), minns });
+  return { lage, rader };
+}
+
+/// Förslag som visats men inte besvarats: id → { ops, avtryck, agare, tid }.
+/// Bara i minnet. En omstart glömmer dem, och det är rätt — "glöm allt om
+/// Z" ska inte ligga på disk och vänta på ditt ja.
+const bankForslag = new Map();
+const visatAvtryck = andringar => createHash('sha256').update(JSON.stringify(andringar)).digest('hex');
+const BANK_FORSLAG_MS = 30 * 60e3;
+
+/// Det du skrev, som ett förslag på ändringar: { forslag } eller { svar }
+/// när inget behöver ändras. Ingenting ändras här. `fraga` är knack-
+/// knackens fråga när texten är ett svar på den (lib/kollega.mjs) — samma
+/// tolkning och samma godkännande som i /du.
+async function bankTolka(jag, text, { fraga = '' } = {}) {
+  const { lage, rader } = await bankLage(jag);
+  let ops = [];
+  const glom = Banken.glomUr(text);
+  if (glom) ops = [glom];
+  else {
+    if (!(await grindSvarar())) return { forslag: null, error: tx('srv.banken.modellenSvararInte') };
+    const svar = await svaraLokalt(Banken.tolkPrompt(text, rader, { fraga }), { plats: 'efterat', tak: 700, timeout: 120000, baraLokalt: true }).catch(() => '');
+    ops = Banken.lasTolkning(svar, rader, { text: `${fraga}\n${text}` }) || [];
+  }
+  // Samtalen söks bara när något ska glömmas, och bara dina egna öppna.
+  const samtal = ops.some(o => o.gor === 'glom')
+    ? [...sessioner.values()].filter(x => (x.agare || null) === (jag?.id || null) && !x.las && !x.forseglad)
+      .map(x => ({ titel: x.titel, text: (x.turer || []).map(t => `${t.fraga || ''}\n${t.svar || ''}\n${t.sager || ''}`).join('\n') }))
+    : [];
+  const r = Banken.tillamp(lage, ops, { uppdrag, samtal });
+  const { antal: lager } = await glomAgentLager(ops);
+  if (!r.andringar.length && !Object.keys(lager).length) return { forslag: null, svar: [tx('srv.banken.ingetAttAndra'), ...r.ovrigt].join('\n\n'), ovrigt: r.ovrigt };
+  const id = randomUUID();
+  for (const [k, v] of bankForslag) if (Date.now() - v.tid > BANK_FORSLAG_MS) bankForslag.delete(k);
+  // Det du godkänner är exakt det du såg (granskningen 2026-10-10): också
+  // ändringarnas avtryck sparas, så att ett "glöm" inte tar mer än
+  // förhandsvisningen visade om något nytt hunnit komma in under tiden —
+  // i profilen eller i agentens lager (punkt 10).
+  bankForslag.set(id, { ops, avtryck: Banken.fingeravtryck(lage), visat: visatAvtryck([r.andringar, lager]), agare: jag?.id || null, tid: Date.now() });
+  return { forslag: { id, andringar: r.andringar, ovrigt: r.ovrigt, lager, text: Banken.somText(r.andringar, r.ovrigt, lager) } };
+}
+
+/// "Glöm allt om Z" i agentens egna lager (punkt 10, 2026-10-10): fynden,
+/// det undanlagda, kollegans minne, svarsförslagen, handlingarna, spåret och
+/// raderna om telefonen. Räknas fram på kopior; `spara` skriver dem. Dina
+/// samtal rörs inte här — förslaget säger var Z nämns i dem.
+async function glomAgentLager(ops, { spara: skriv = false } = {}) {
+  const glom = (ops || []).filter(o => o.gor === 'glom');
+  if (!glom.length) return { antal: {} };
+  let lager = { fynd, undanlagt, kollega: await kollegaMinne(), svarsforslag, handlingar, spar: agentspar, telefon: telefonLogg };
+  const antal = {};
+  for (const o of glom) {
+    const g = Banken.glomILager(lager, o.om);
+    lager = g.lager;
+    for (const [k, n] of Object.entries(g.antal)) antal[k] = (antal[k] || 0) + n;
+  }
+  if (skriv) {
+    if (antal.fynd || antal.undanlagt) { fynd = lager.fynd; undanlagt = lager.undanlagt; await sparaFynd(); }
+    if (antal.kollega) await skrivKollega(Kollega.minneUr(lager.kollega));
+    if (antal.svarsforslag) { svarsforslag = lager.svarsforslag; await sparaSvarsforslag(); }
+    if (antal.handlingar) { handlingar = lager.handlingar; await sparaHandlingar(); }
+    if (antal.spar) { agentspar = lager.spar; await sparaSpar(); }
+    if (antal.telefon) { telefonLogg = lager.telefon; await sparaTelefon(); }
+    if (Object.keys(antal).length) sandAlla({ typ: 'agent' });
+  }
+  return { antal };
+}
+
+/// Du-raden i Grunden står kvar med det gamla tills den skrivs om. Den bär
+/// profilens fält, och ett fält du tagit bort ska inte stå kvar där heller.
+async function skrivOmDuRad(foreProfil, foreDu) {
+  const s = [...sessioner.values()].find(x => x.helig?.sort === 'du');
+  if (!s) return;
+  const nyDu = await lasDu();
+  const gammal = Grunden.duRad(Profil.las(foreProfil), foreDu);
+  const ny = Grunden.duRad(Profil.las(installningar.profil), nyDu);
+  let andrad = false;
+  for (const t of s.turer) {
+    if (!t.du || typeof t.sager !== 'string') continue;
+    t.sager = t.sager.includes(gammal) ? t.sager.replace(gammal, () => ny) : ny;
+    andrad = true;
+  }
+  if (andrad) { s.andrad = new Date().toISOString(); await spara(s); sandAlla({ typ: 'lista' }); }
+}
+
+// ── Kollegan: förslag med skäl, och knack-knack (2026-10-10) ──────────────
+//
+// Se lib/kollega.mjs. Förslagen läser det agenten redan hittat — fynden med
+// sina kort och etiketter — och kalendern runt i dag. Modellen är den
+// lokala (baraLokalt): underlaget är din post och dina möten. Ett förslag
+// skickar ingenting; svaret öppnas i svarsrutan, mötet går till Kalender
+// som frågar, och ett "hör av dig" är en text att kopiera.
+//
+// Knacken går bara till fönstret: aldrig notifiera(), som går till
+// Notiscenter när fönstret saknas och till telefonen när något är viktigt.
+
+/// Bara proven (MAXIMUS_PROV=1): ett påhittat dygn och en påhittad vila.
+/// Proven rör aldrig Kalender: utan påhittade möten finns inga.
+const PROV_KOLLEGA = process.env.MAXIMUS_PROV === '1';
+// `agent` är konton och kalendrar med etiketter för förslagen: provet ger
+// dem här i stället för i inställningarna, där hjärtslaget hade läst Mail.
+const kollegaProv = { fynd: null, moten: null, vilaSek: null, agent: null };
+
+/// Det du sagt om förslagen och frågorna (kollega.json). Läses när det
+/// behövs: låst finns det inget att läsa, och ett tomt minne som sparades
+/// då hade skrivit över ditt.
+let kollegaMinnet = null;
+async function kollegaMinne() {
+  if (kollegaMinnet) return kollegaMinnet;
+  if (maximus.skyddat && !maximus.upplast) return Kollega.tomtMinne();
+  try { kollegaMinnet = Kollega.minneUr(JSON.parse(await maximus.lasFil(join(dataDir, 'kollega.json')))); }
+  catch { kollegaMinnet = Kollega.tomtMinne(); }
+  return kollegaMinnet;
+}
+async function skrivKollega(m) {
+  kollegaMinnet = m;
+  await maximus.skrivFil(join(dataDir, 'kollega.json'), JSON.stringify(m));
+}
+
+/// Mötena runt i dag, ur de valda kalendrarna med sina etiketter.
+async function kollegaMoten(nu = new Date()) {
+  if (PROV_KOLLEGA) return kollegaProv.moten || [];
+  const a = agentInst();
+  if (!a.kalender || !Kalender.finns()) return [];
+  const t0 = new Date(nu).getTime();
+  const h = await Kalender.handelser({ fran: new Date(t0 - Kollega.DYGN * 864e5), till: new Date(t0 + Kollega.DYGN * 864e5) }).catch(() => []);
+  return h.map(x => ({ ...x, ...Konton.kalenderFor(a.kalender, x) })).filter(x => x.med);
+}
+const kollegaFynd = () => (PROV_KOLLEGA && kollegaProv.fynd) || fynd;
+
+/// Ett varv med förslag. Högst var tredje timme, och inte medan du skriver.
+/// Raden står i Agenten: förslagen, varför, och korten på underlaget.
+let foreslarKollega = false;
+async function kollegaForeslar({ nu = new Date(), tvinga = false } = {}) {
+  if (IDENTITET || !Kollega.lage(installningar).forslag) return { nej: 'av' };
+  if (maximus.skyddat && !maximus.upplast) return { nej: 'last' };
+  if (foreslarKollega) return { nej: 'pagar' };
+  if (korningar.size > 0) return { nej: 'samtal' };
+  const fore = await kollegaMinne();
+  if (!tvinga && fore.senastForslag && new Date(nu) - Date.parse(fore.senastForslag) < Kollega.FORSLAG_MS) return { nej: 'nyss' };
+  foreslarKollega = true;
+  try {
+    const a = (PROV_KOLLEGA && kollegaProv.agent) || agentInst();
+    const underlag = Kollega.underlagUr({ fynd: kollegaFynd(), moten: await kollegaMoten(nu), epost: a.epost, nu });
+    let lista = [];
+    if (underlag.some(x => !x.pakallande)) {
+      await modellForAgenten();
+      if (!(await grindSvarar())) return { nej: 'modell' };
+      let svar = '';
+      try {
+        svar = await agentAnrop(Kollega.forslagsPrompt({ profil: Profil.somText(installningar.profil) || '', underlag,
+          larda: Kollega.lardaRader(fore, { nu }), nu }), { tak: 1400, baraLokalt: true });
+      } catch (e) {
+        // Ett samtal tog över: inget varv räknas, nästa försök kommer.
+        if (e.foretrade) return { nej: 'samtal' };
+      }
+      // Minnet läses igen: du kan ha svarat på ett förslag medan modellen tänkte.
+      lista = Kollega.lasForslag(svar, underlag, { minne: await kollegaMinne(), agent: a, nu }) || [];
+    }
+    const m = { ...(await kollegaMinne()), senastForslag: new Date(nu).toISOString() };
+    if (!lista.length) { await skrivKollega(m); return { forslag: [] }; }
+    const s = await agentSamtalet();
+    const { underlag: korten, forslag } = Kollega.somTur(lista);
+    const tid = new Date().toISOString();
+    // Inte `const tur = { id: randomUUID()`: sandgrans.test letar upp sändvägen på den raden.
+    const forslagTur = { id: randomUUID(), tid, fraga: '', av: 'maximus', avAgenten: true, status: 'klar', svar: '', kvitto: [], kallor: [],
+      sager: tx('srv.kollega.rad', { n: forslag.length }), underlag: korten, kollega: { forslag: [] } };
+    for (const f of forslag) { f.session = s.id; f.tur = forslagTur.id; }
+    forslagTur.kollega.forslag = forslag.map(Kollega.visas);
+    s.turer.push(forslagTur); s.andrad = tid;
+    m.forslag = [...m.forslag, ...forslag].slice(-200);
+    await spara(s); await skrivKollega(m);
+    sand(s.id, { typ: 'agenttur', session: s.id, tur: forslagTur });
+    sandAlla({ typ: 'lista' });
+    // Bara i fönstret: aldrig till telefonen och inte Notiscenter. Ett
+    // förslag är något att titta på när du ändå sitter där, och varvet har
+    // redan haft sin notis (punkt 10).
+    sandAlla({ typ: 'notis', titel: tx('srv.kollega.notisTitel'), text: tx('srv.kollega.notisText', { n: forslag.length, forsta: forslag[0].titel }), session: s.id });
+    return { forslag: forslagTur.kollega.forslag, session: s.id, tur: forslagTur.id };
+  } finally { foreslarKollega = false; }
+}
+
+/// Förslaget står också på turen, så att samtalet visar läget.
+async function speglaKollega(f) {
+  const s = f.session && sessioner.get(f.session);
+  // Ett förseglat eller låst samtal rörs inte; förslaget lever i minnet ändå.
+  const oppet = s && !(s.las?.styrka === 'forseglad') && !s.las && !s.forseglad;
+  const t = oppet ? s.turer.find(x => x.id === f.tur) : null;
+  if (t?.kollega) {
+    t.kollega.forslag = t.kollega.forslag.map(x => (x.id === f.id ? Kollega.visas({ ...f, nr: x.nr }) : x));
+    await spara(s);
+  }
+  sandAlla({ typ: 'kollega', forslag: Kollega.visas(f) });
+}
+
+/// Du tog förslaget. Ett svar blir ett svarsförslag från kontot brevet kom
+/// till, som du skickar själv; ett möte en händelse som Kalender frågar om;
+/// resten en text att kopiera. Inget går någonstans härifrån.
+///
+/// Ett möte utan tid (mejlet sa ingen) får sin tid av dig: `start` och
+/// `slut` som ÅÅÅÅ-MM-DDTHH:MM, lokal tid. Utan den förbereds inget.
+async function taKollegaForslag(f, { text = null, start = null, slut = null } = {}) {
+  const utkast = text != null ? String(text).slice(0, 4000) : (f.utkast || '');
+  if (f.konto && f.brevId) {
+    let fs;
+    if (PROV_SVAR) {
+      // Proven läser aldrig Mail: brevet byggs ur förslaget.
+      fs = Svar.nyttForslag({ brev: { id: f.brevId, fran: f.fran || f.vem || '', amne: f.underlag?.[0]?.titel || f.titel, namn: f.vem || null, text: '' },
+        konto: f.konto, lada: f.lada || 'INBOX', etikett: f.etikett || null, text: utkast, varfor: f.varfor, session: f.session || null });
+      svarsforslag.push(fs); await sparaSvarsforslag();
+    } else fs = await foreslaSvar({ konto: f.konto, lada: f.lada || 'INBOX', id: f.brevId, session: f.session || null, text: utkast });
+    return { svarsforslag: fs };
+  }
+  if (f.sort === 'boka') {
+    const lokal = v => { const m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)$/.exec(String(v || '')); const d = m && new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]); return d && Number.isFinite(+d) ? d : null; };
+    const s0 = lokal(start) || lokal(f.start);
+    if (!s0) throw new Error(tx('srv.kollega.valjTid'));
+    let s1 = lokal(start) ? lokal(slut) : lokal(slut) || lokal(f.slut);
+    if (!s1 || +s1 <= +s0 || +s1 - +s0 > 12 * 36e5) s1 = new Date(+s0 + 3600e3);
+    f = { ...f, start: s0, slut: s1 };
+    // Agentens samtal, om det står öppet; ett förseglat eller låst får ett nytt.
+    const fore = f.session && sessioner.get(f.session);
+    const s = fore && !(fore.las?.styrka === 'forseglad') && !fore.las && !fore.forseglad && !fore.arkiverad ? fore : await agentSamtalet();
+    const h = { id: randomUUID(), titel: f.titel, start: new Date(f.start).toISOString(), slut: new Date(f.slut).toISOString(), plats: null,
+      deltagare: [], paminnelser: [], obligatoriskt: false, anteckning: f.varfor, gjort: {}, ...(f.kalender ? { kalender: f.kalender } : {}) };
+    const motesTur = { id: randomUUID(), tid: new Date().toISOString(), fraga: '', av: 'maximus', avAgenten: true, status: 'klar', svar: '', kvitto: [], kallor: [],
+      sager: tx('srv.kollega.bokaRad', { titel: f.titel }), handelse: h };
+    s.turer.push(motesTur); s.andrad = motesTur.tid; await spara(s);
+    sand(s.id, { typ: 'agenttur', session: s.id, tur: motesTur });
+    return { session: s.id, tur: motesTur };
+  }
+  return { kopiera: utkast };
+}
+
+/// Fönstrets närvaro: i vila eller inte, och när det senast hördes av.
+let narvaro = null;
+let knackMoten = { nar: 0, lista: [] };
+
+/// Knack-knack: får den knacka, och i så fall med vilken fråga. Går bara
+/// till fönstret. Svarar { ja, skal } — skälet som kod (lib/kollega.mjs).
+async function knacka({ nu = new Date() } = {}) {
+  if (IDENTITET) return { ja: false, skal: 'av' };
+  if (maximus.skyddat && !maximus.upplast) return { ja: false, skal: 'last' };
+  // Under onboardingen frågar Maximus redan, i sin egen ordning.
+  if (!installningar.forsta?.klar) return { ja: false, skal: 'start' };
+  const m = await kollegaMinne();
+  const vila = PROV_KOLLEGA && kollegaProv.vilaSek != null ? kollegaProv.vilaSek : await vilaSek();
+  // Närvaron mäts mot klockan den kom med; ett prov som flyttar klockan
+  // flyttar den också.
+  const n = narvaro && { ...narvaro, nar: new Date(nu).getTime() - (Date.now() - narvaro.nar) };
+  const far = Kollega.farKnacka({ lage: Kollega.lage(installningar), fonster: oversikt.size, narvaro: n, vilaSek: vila,
+    samtal: korningar.size + dikteringar.size + moteKo.size, minne: m, nu });
+  if (!far.ja) return far;
+  const k = Kollega.nyKnack(Kollega.knackAmnen({ profil: installningar.profil, du: await lasDu(), fynd: kollegaFynd(), minne: m, nu }), { nu });
+  if (!k) return { ja: false, skal: 'inget' };
+  // Kalendern sist: den är det enda som kostar något att fråga, och den
+  // frågas högst var tionde minut.
+  if (PROV_KOLLEGA || Date.now() - knackMoten.nar > 10 * 60e3) knackMoten = { nar: Date.now(), lista: await kollegaMoten(nu).catch(() => []) };
+  if (Kollega.motePagar(knackMoten.lista, nu)) return { ja: false, skal: 'mote' };
+  await skrivKollega({ ...m, knack: { ...m.knack, oppen: k } });
+  sandAlla({ typ: 'knack', knack: { id: k.id, fraga: k.fraga, halsning: Kollega.halsning(k) } });
+  return { ja: true, skal: null, knack: k };
+}
+// Proven knackar själva (/api/kollega/prov), med en klocka de styr.
+if (!PROV_KOLLEGA) setInterval(() => knacka().catch(() => {}), 60e3).unref?.();
 
 /// Molnmodellen (Fas 51): läget ur inställningarna, nyckeln ur nyckelringen.
 /// Utan nyckel eller avstängd går allt lokalt, som förut.
@@ -1867,7 +2366,7 @@ async function namngeTraden(u, s, sammanfattning) {
   if (!sammanfattning || korningar.size > 0) return;
   let titel = u.titel;
   if (GENERISKT.test(titel)) {
-    const ny = await Rubrik.rubrik(String(u.instruktion || ''), sammanfattning);
+    const ny = await Rubrik.rubrik(String(u.instruktion || ''), sammanfattning, { signal: agentKontroll.signal });
     if (ny && !GENERISKT.test(ny)) {
       titel = ny;
       const i = uppdrag.findIndex(x => x.id === u.id);
@@ -1875,7 +2374,8 @@ async function namngeTraden(u, s, sammanfattning) {
     }
   }
   if (s.dopt) return;
-  const vad = await Rubrik.rubrik(tx('srv.rubrik.vadHittade'), sammanfattning);
+  if (korningar.size > 0) return;
+  const vad = await Rubrik.rubrik(tx('srv.rubrik.vadHittade'), sammanfattning, { signal: agentKontroll.signal });
   s.titel = (vad && vad !== titel ? tx('srv.trad.titelDatum', { titel, datum: vad }) : tx('srv.trad.titelDatum', { titel, datum: new Date().toLocaleDateString(lokalNu(), { day: 'numeric', month: 'short' }) })).slice(0, 90);
   await spara(s);
   sand(s.id, { typ: 'titel', titel: s.titel });
@@ -1961,11 +2461,44 @@ function styrverktyg({ text = '' } = {}) {
   ];
 }
 
-async function fyndsamtal(u, nya, nu, varv = {}) {
+/// Originalen bakom fynden, lästa lokalt via referenserna (2026-10-10): ett
+/// mejl bar bara sitt ämne, och sammanfattningen skrevs ur det. De första
+/// sex; resten står på sina kort och läses när någon frågar.
+///
+/// Tre åt gången och högst femton sekunder för alla (punkt 10): sex brev i
+/// följd från ett Mail som inte svarar var fyra och en halv minut innan
+/// turen syntes. Ett original som försökte styra modellen märker fyndet,
+/// också när det läses klart efter tidsgränsen.
+async function originalen(nya) {
+  const texter = await Underlag.lasManga(nya.slice(0, 6), async f => {
+    const k = Underlag.kort(f);
+    const t = await Underlag.lasHela(k, lasOriginal);
+    if (k.pakallande) f.pakallande = true;
+    return t;
+  });
+  return [...texter, ...nya.slice(6).map(() => '')];
+}
+
+/// Sammanställningen av ett varvs nyheter eller inlägg (2026-10-10). Den
+/// strömmas inte: modellen svarar med JSON, och varje stycke prövas mot sina
+/// källor innan det visas. Utan modell (ett samtal har företräde), eller när
+/// inget stycke höll, skriver reglerna en torr — aldrig en påhittad.
+async function skrivSammanstallning(u, nya, { snabb = false } = {}) {
+  let stycken = [];
+  if (korningar.size === 0 && !snabb) {
+    const profil = Profil.somText(malet(u));
+    const svar = await agentAnrop(Sammanstallning.prompt(u, nya, { profil }), { tak: 1200 }).catch(() => '');
+    ({ stycken } = Sammanstallning.las(svar, nya, { profil }));
+  }
+  return stycken.length ? Sammanstallning.somText(stycken) : Sammanstallning.reserv(nya);
+}
+
+async function fyndsamtal(u, nya, nu, varv = {}, { sammanstallning = false, snabb = false } = {}) {
   const tid = new Date(nu).toISOString();
+  const texter = await originalen(nya);
   // Inte `const tur = { id: randomUUID()`: sandgrans.test letar upp
   // sändvägen på just den raden, och en till före den gömde sändvägen.
-  const agentTur = { id: randomUUID(), tid, fraga: Fyndsamtal.fragan(u, nya), svar: '', status: 'igang',
+  const agentTur = { id: randomUUID(), tid, fraga: sammanstallning ? Sammanstallning.fragan(u, nya) : Fyndsamtal.fragan(u, nya), svar: '', status: 'igang',
     avAgenten: true, av: 'maximus', sager: agentRad(u, nya, nu, varv),
     // Samma sak strukturerat, för kortet: uppdraget, din instruktion, vad
     // varvet läste, och var uppdraget gavs — så att källan går att öppna.
@@ -1975,8 +2508,16 @@ async function fyndsamtal(u, nya, nu, varv = {}) {
       // En engångssökning kan bli en bevakning: "fortsätt — bara nya".
       engang: !u.aterkommande, uppdrag: u.id },
     kvitto: [],
+    // Ett kort per fynd med referensen till originalet (2026-10-10); följdfrågorna läser det.
+    underlag: Fyndsamtal.underlag(nya, texter),
+    // En sammanställning: korten följer med assistenten men visas inte, för
+    // källrutan visar samma poster (punkt 10).
+    ...(sammanstallning ? { sammanstallning: true } : {}),
     // Fynden med länk, bild och pris blir källor och kort, som i ett svar.
-    kallor: nya.filter(f => f.url).map((f, i) => ({ nr: i + 1, titel: f.titel, url: f.url, vard: f.fran || '', niva: 0, etikett: '', ...(f.vara ? { vara: f.vara } : {}) })) };
+    // I en sammanställning har varje källa sitt nummer ur listan, så att [3]
+    // i ett stycke pekar på post tre också när post två saknar adress.
+    kallor: (sammanstallning ? nya.map((f, i) => [f, i + 1]).filter(([f]) => f.url) : nya.filter(f => f.url).map((f, i) => [f, i + 1]))
+      .map(([f, nr]) => ({ nr, titel: f.titel, url: f.url, vard: f.fran || '', niva: 0, etikett: '', ...(f.vara ? { vara: f.vara } : {}) })) };
   // Ett uppdrag har EN tråd (2026-10-04): agenten skriver i uppdragets
   // samtal så länge det finns och varken är låst, förseglat eller arkiverat.
   // Ett samtal för allt agenten gör (Fas 33): Agenten. Uppdragets trådar
@@ -1993,6 +2534,8 @@ async function fyndsamtal(u, nya, nu, varv = {}) {
     behandling: Behandling.stall(installningar.behandling) };
   s.turer.push(agentTur);
   s.andrad = tid;
+  // Fyndens sfärer (2026-10-10): samtalet går att filtrera på dem.
+  s.etiketter = [...new Set([...(s.etiketter || []), ...nya.map(f => f.sfar).filter(Boolean)])].slice(0, 12);
   sessioner.set(s.id, s);
   await spara(s);
   if (s.id !== u.session) {
@@ -2006,26 +2549,33 @@ async function fyndsamtal(u, nya, nu, varv = {}) {
   // Och en rad där du redan är: samtalet finns, här är det.
   sandAlla({ typ: 'fyndsamtal', id: s.id, titel: s.titel });
 
-  const lista = Fyndsamtal.lista(nya);
+  const lista = sammanstallning ? Sammanstallning.kallista(nya, { utanLank: true }) : Fyndsamtal.lista(nya);
   let sammanfattning = '';
-  if (korningar.size > 0) {
+  // `snabb` (punkt 10): varvet har nått sitt tak. Listan räcker då; ingen
+  // sammanfattning och ingen ny rubrik, så att varvet tar slut.
+  if (sammanstallning) {
+    sammanfattning = await skrivSammanstallning(u, nya, { snabb });
+    sand(s.id, { typ: 'text', turId: agentTur.id, bit: sammanfattning });
+  } else if (korningar.size > 0) {
     sammanfattning = tx('srv.fyndsamtal.ingenSammanfattning');
+    sand(s.id, { typ: 'text', turId: agentTur.id, bit: sammanfattning });
+  } else if (snabb) {
+    sammanfattning = tx('srv.fyndsamtal.varvetFullt');
     sand(s.id, { typ: 'text', turId: agentTur.id, bit: sammanfattning });
   } else {
     try {
-      sammanfattning = await svaraLokalt(Fyndsamtal.prompt(u, nya, { profil: Profil.somText(malet(u)) }), {
-        plats: 'agent', tak: 500, timeout: 180000,
-        onText: bit => sand(s.id, { typ: 'text', turId: agentTur.id, bit }),
+      sammanfattning = await agentAnrop(Fyndsamtal.prompt(u, nya, { profil: Profil.somText(malet(u)), texter }), {
+        tak: 500, onText: bit => sand(s.id, { typ: 'text', turId: agentTur.id, bit }),
       });
     } catch (e) {
-      sammanfattning = tx('srv.fyndsamtal.sammanfattningFel', { fel: e.message });
+      sammanfattning = e.foretrade ? tx('srv.fyndsamtal.ingenSammanfattning') : tx('srv.fyndsamtal.sammanfattningFel', { fel: e.message });
     }
   }
-  agentTur.svar = `${String(sammanfattning).trim()}\n\n${lista}`;
+  agentTur.svar = `${String(sammanfattning).trim()}\n\n${lista}`.trim();
   agentTur.status = 'klar';
-  await namngeTraden(u, s, sammanfattning).catch(() => {});
+  if (!snabb) await namngeTraden(u, s, sammanfattning).catch(() => {});
   agentTur.kvitto = [{ tid: new Date().toISOString(), aktor: tx('srv.liggare.aktorAgenten'), lokalt: true, ms: 0,
-    vad: tx('srv.kvitto.fyndUr', { n: nya.length, titel: u.titel }) }];
+    vad: sammanstallning ? tx('srv.kvitto.sammanstallningUr', { n: nya.length, titel: u.titel }) : tx('srv.kvitto.fyndUr', { n: nya.length, titel: u.titel }) }];
   await spara(s);
   sand(s.id, { typ: 'klar', turId: agentTur.id, tur: agentTur, titel: s.titel });
   sandAlla({ typ: 'lista' });
@@ -2455,6 +3005,183 @@ const koder = new Map();
 /// Sant när sessionen är förseglad och koden inte getts i den här körningen.
 const stangd = s => Boolean(s?.forseglad) && !koder.has(s.id);
 
+/// Anonymiseringen av en maskerad text, stycke för stycke.
+///
+/// Den lokala modellen skriver om det som pekar ut även utan namn — ett exakt
+/// belopp, en ovanlig diagnos, ett datum som bara gäller ett ärende — på den
+/// MASKERADE texten, så den ser aldrig namnen. Varje stycke prövas: blev det
+/// faktiskt vagare? Blev det inte det står det maskerade stycket kvar. En
+/// omskrivning som bara låter annorlunda är ingen anonymisering.
+///
+/// Bruten ur bilagornas väg (/fil/:fid/anonymisera) när samma arbete också
+/// skulle gå att be om i samtalet (Auro 2026-10-10). `pa` får det som
+/// händer, i samma form som bilagekortet redan ritar: `borjan` med styckena,
+/// `letar`, `bit` medan modellen skriver, `klartBlock` per stycke.
+///
+/// `baraLokalt`: texten når aldrig molnet, vad molninställningen än säger.
+/// Den som ber Maximus anonymisera något i samtalet har fått löftet att inget
+/// lämnar datorn för det.
+async function anonymiseraStycken(maskerad, { pa = () => {}, baraLokalt = false, signal } = {}) {
+  const bitar = stycken(maskerad, { minsta: 400, storsta: 2200 });
+  const ut = [];
+  const vagt = [];
+  let lamnade = 0;
+  // Styckena skickas i förväg. Kortet i samtalet ritar dem direkt och
+  // byter ut ett i taget medan modellen arbetar — som ett dokument som
+  // redigeras, inte som en förloppsindikator.
+  pa({ borjan: true, block: bitar.length, bitar });
+  for (const [i, bit] of bitar.entries()) {
+    // Vad stycket innehåller som pekar ut. Skickas innan modellen
+    // börjat, så att den som ser på vet vad den letar efter.
+    //
+    // Modellens eget resonemang vore ett annat sätt att visa arbetet,
+    // och det går att strömma. Mätt 2026-09-25: Gemma 4 12B skrev
+    // 9 306 tecken tanke om ett enda stycke och hann aldrig fram till
+    // svaret innan tiden tog slut. Reglerna vet samma sak på noll tid.
+    pa({ letar: vadFinns(bit) });
+    const efter = await svaraLokalt(tx('srv.anonym.textenEtikett', { generalisera: GENERALISERA, bit }), {
+      onText: t => pa({ bit: t }), baraLokalt, signal,
+    });
+    // Modellen inleder ibland med "Här är den omskrivna texten…" och
+    // en avdelare, trots att instruktionen säger texten och inget
+    // annat. Det är prat om arbetet, inte arbetet.
+    const d = blevVagare(bit, rensaPrat(efter));
+    // Blev stycket inte vagare behålls originalet — men det som redan
+    // strömmats ut måste då bytas ut, annars visar rutan något annat
+    // än det som sparas.
+    ut.push(d.ok ? rensaPrat(efter) : bit);
+    if (!d.ok) lamnade++;
+    // Vad som faktiskt blev vagare. Det går att granska, till
+    // skillnad från en försäkran om att något blev bättre.
+    const v = d.ok ? blevVagt(bit, rensaPrat(efter)) : [];
+    vagt.push(...v);
+    pa({ klartBlock: i + 1, block: bitar.length, behollet: !d.ok, text: ut[ut.length - 1], vagt: v });
+  }
+  return { text: ut.join('\n\n'), lamnade, block: bitar.length, vagt };
+}
+
+/// Maskera och/eller anonymisera på begäran, i samtalet (Auro 2026-10-10).
+///
+/// "Maskera den här texten: …", "anonymisera bilagan", "anonymize your last
+/// answer". Känns igen av lib/maskbegaran.mjs innan någon modell svarat, och
+/// görs här med det som redan finns: forbered() med reglerna, namnmodellen
+/// och den lokala tolkningen, och anonymiseringen styckevis.
+///
+/// Inget lämnar datorn för det här. Ingen webb, ingen molnmodell — också
+/// när molnet är påslaget, för det du ber om att få maskerat är just det som
+/// inte är maskerat än. Liggaren får ingen rad: den för bok över det som
+/// lämnat datorn, och ingenting gjorde det.
+///
+/// Svaret är en tur som alla andra, med kortet i `maskning`: texten, antal
+/// per sort och kartan — bara de platshållare som står i den här texten.
+/// Kartan visas på begäran, i gränssnittet, och sparas krypterad med
+/// sessionen som sessionens egen karta redan gör.
+/// Nycklarna, utskrivna: en nyckel som byggs av delar går inte att hitta
+/// när någon letar efter var en text används.
+const MASKNING_KALLA = { text: 'srv.maskning.kalla.text', citat: 'srv.maskning.kalla.citat', svar: 'srv.maskning.kalla.svar',
+  bilaga: 'srv.maskning.kalla.bilaga', fraga: 'srv.maskning.kalla.fraga' };
+const MASKNING_TITEL = { maskera: 'srv.maskning.titel.maskera', anonymisera: 'srv.maskning.titel.anonymisera', bada: 'srv.maskning.titel.bada' };
+
+async function maskeraPaBegaran(s, fraga, a, res) {
+  const val = Maskbegaran.valjText(a, { turer: s.turer, filer: s.filer || [] });
+  const tur = { id: randomUUID(), tid: new Date().toISOString(), status: 'igang', fraga, maskerad: null,
+    maskerat: 0, svar: '', frontier: null, lokalt: true, webb: false, anmarkningar: [], kvitto: [], kallor: [],
+    maskbegaran: a.gor, bilagor: [] };
+  s.turer.push(tur);
+  await spara(s);
+  json(res, 202, { turId: tur.id, stod: null });
+
+  const kontroll = new AbortController();
+  korningar.set(s.id, kontroll);
+  sandAlla({ typ: 'lista', agare: s.agare });
+  void (async () => {
+    const kvitto = [];
+    const steg = (namn, text) => sand(s.id, { typ: 'steg', turId: tur.id, steg: namn, text });
+    try {
+      if (!val) {
+        // Ingenting att maskera: säg hur man ber om det, i stället för att
+        // gissa vilken text som menas.
+        tur.svar = tx(a.kalla === 'bilaga' ? 'srv.maskning.ingenBilaga' : a.kalla === 'svar' ? 'srv.maskning.ingetSvar' : 'srv.maskning.vilkenText');
+      } else {
+        steg('maskera', tx('srv.maskning.steg.maskerar'));
+        const t0 = Date.now();
+        const fil = val.fil ? (s.filer || []).find(f => f.id === val.fil) : null;
+        // Med den lokala tolkningen: du har bett om just det här, och den
+        // körs på datorn (lib/grind.mjs). Svarar modellen inte gäller
+        // reglerna och namnmodellen, och kvittot säger det.
+        const m = await forbered(val.text, { karta: s.karta || [], raknare: s.raknare || {},
+          sorter: galler(installningar), tolka: true, signal: kontroll.signal });
+        s.karta = m.karta;
+        s.raknare = m.raknare;
+        // Bilagans maskerade vy blir den här: den är gjord med hela kartan och
+        // den lokala tolkningen, och exporten ska ge det kortet visar. En
+        // bilaga som lades till omaskerad (Original mot molnet) får nu en mask
+        // — du bad om den. En publik källa rörs inte.
+        if (fil && !fil.publik) {
+          fil.maskerad = m.maskerad;
+          fil.dolda = Maskbegaran.kartanI(m.maskerad, m.karta).length;
+          delete fil.omaskerad;
+        }
+        kvitto.push({ tid: new Date().toISOString(), aktor: tx('srv.maskning.kvitto.maskeringen'), lokalt: true, ms: Date.now() - t0,
+          vad: tx('srv.maskning.kvitto.maskerade', { n: Maskbegaran.kartanI(m.maskerad, m.karta).length }) });
+        if (m.varning) kvitto.push({ tid: new Date().toISOString(), aktor: tx('srv.kvitto.lokalModell'), lokalt: true, ms: 0, fel: true, vad: m.varning });
+
+        let text = m.maskerad, anonym = null, fel = null;
+        if (a.gor !== 'maskera') {
+          steg('anonymiserar', tx('srv.maskning.steg.anonymiserar'));
+          const t1 = Date.now();
+          try {
+            const r = await anonymiseraStycken(m.maskerad, { baraLokalt: true, signal: kontroll.signal,
+              pa: h => { if (h.klartBlock) steg('anonymiserar', tx('srv.maskning.steg.stycke', { klara: h.klartBlock, av: h.block })); } });
+            // Genom maskeringen igen, med samma karta. Modellen skrev om
+            // texten, och en omskrivning kan råka skriva fram ett namn.
+            const karta = new Map(s.karta.map(k => [k.original, k.platshallare]));
+            const raknare = new Map(Object.entries(s.raknare || {}));
+            const h = maskeraHart(r.text, { karta, raknare, sorter: galler(installningar) });
+            text = h.skyddat.aterstall(h.text);
+            s.karta = [...karta].map(([original, platshallare]) => ({ original, platshallare }));
+            s.raknare = Object.fromEntries(raknare);
+            anonym = { block: r.block, lamnade: r.lamnade, vagt: r.vagt.slice(0, 40), rojning: bedomRojning(text) };
+            // En bilaga får sin anonymiserade vy, så att exporten
+            // (/fil/:fid/export?vy=anonym) och kortet har den.
+            if (fil && !fil.publik) { fil.anonym = text; fil.anonymRojning = anonym.rojning; }
+            kvitto.push({ tid: new Date().toISOString(), aktor: tx('srv.kvitto.lokalModell'), lokalt: true, ms: Date.now() - t1,
+              vad: tx('srv.maskning.kvitto.skrevOm', { n: r.block - r.lamnade, av: r.block }) });
+          } catch (e) {
+            if (kontroll.signal.aborted) throw e;
+            // Fail closed på etiketten, inte på texten: den maskerade texten
+            // är fortfarande maskerad. Men den ska inte kallas anonymiserad.
+            fel = String(e.message || e).slice(0, 160);
+            kvitto.push({ tid: new Date().toISOString(), aktor: tx('srv.kvitto.lokalModell'), lokalt: true, ms: Date.now() - t1, fel: true,
+              vad: tx('srv.maskning.kvitto.gickInte', { fel }) });
+          }
+        }
+        const antal = Maskbegaran.perSort(text, s.karta);
+        const n = antal.reduce((x, y) => x + y.antal, 0);
+        const vad = tx(MASKNING_KALLA[val.kalla] || MASKNING_KALLA.text, { namn: val.namn || '' });
+        tur.maskning = { gor: a.gor, kalla: val.kalla, namn: val.namn || null, fil: fil?.id || null, text, antal,
+          karta: Maskbegaran.kartanI(text, s.karta), anonymiserad: Boolean(anonym), anonym, fel };
+        tur.maskerat = n;
+        tur.svar = fel ? tx('srv.maskning.svar.anonymFel', { vad, n, fel })
+          : anonym ? tx(a.gor === 'bada' ? 'srv.maskning.svar.bada' : 'srv.maskning.svar.anonym', { vad, n, stycken: anonym.block - anonym.lamnade, av: anonym.block })
+            : tx('srv.maskning.svar.maskera', { vad, n });
+      }
+      tur.status = 'klar';
+      tur.kvitto = kvitto;
+      // Rubriken säger vad som gjordes, inte texten: titeln syns i listan,
+      // och en rubrik ur originalet vore just det som skulle döljas.
+      if (s.turer.length === 1 && !s.dopt) s.titel = tx(MASKNING_TITEL[a.gor]);
+      await spara(s);
+      sand(s.id, { typ: 'klar', turId: tur.id, tur, titel: s.titel });
+    } catch (e) {
+      tur.status = kontroll.signal.aborted ? 'stoppad' : 'fel';
+      tur.fel = kontroll.signal.aborted ? tx('srv.session.stoppad') : e.message;
+      await spara(s).catch(() => {});
+      sand(s.id, { typ: 'fel', turId: tur.id, meddelande: tur.fel });
+    } finally { korningar.delete(s.id); sandAlla({ typ: 'lista', agare: s.agare }); }
+  })();
+}
+
 /// Tar bort modellens inledande prat om sitt eget arbete.
 const rensaPrat = text => String(text || '').trim()
   .replace(/^(?:här (?:är|kommer)|nedan (?:följer|står)|jag har|here (?:is|are|comes)|here's|below (?:is|are))[^\n]*\n+/i, '')
@@ -2530,6 +3257,14 @@ async function lasMaximus(token = null) {
   sessioner.clear();
   koder.clear();
   oppnadeNycklar.clear();
+  // Och det som de nya delarna håller i minnet (granskningen 2026-10-10):
+  // förslag till /du med profilens text i, kollegans minne och dagens möten,
+  // namnmodellens fynd per stycke (stycket är nyckeln) och det som väntar på
+  // att läsas. Ett lås som lämnar kvar det man låste in är ingen låsning.
+  bankForslag.clear();
+  kollegaMinnet = null;
+  knackMoten = { nar: 0, lista: [] };
+  Namnmodell.glomNamnmodell();
   // Inställningarna också.
   //
   // Låset tog nyckeln och sessionerna men lämnade inställningarna i
@@ -3257,6 +3992,11 @@ async function hanteraAnrop(req, res) {
       if (await utokning?.las?.(req, res, url, vag, jag)) return;
 
       if (vag === '/api/uppstart') return json(res, 200, {
+        // Var appen körs från (2026-10-10). En app som körs direkt ur DMG:n
+        // eller ur macOS karantänkopia (App Translocation) ligger på en
+        // skrivskyddad plats, och uppdateringen föll med "Read-only file
+        // system (os error 30)". Ytan säger det i förväg i stället.
+        appPlats: appPlats(),
         // Vem jag är följer med uppstarten, och utökningens del av
         // gränssnittet om den har en: app.js laddar den modulen bara då.
         utokning: utokning?.yta || null,
@@ -3300,6 +4040,7 @@ async function hanteraAnrop(req, res) {
         ko: ko?.lage() || null,
         jag: jag ? { id: jag.id, namn: jag.namn, roll: jag.roll } : null,
         maskering: { sorter: MASKSORTER, paket: PAKET, valda: [...galler(installningar)], paketNu: paketFor(galler(installningar)) },
+        namnmodell: await Namnmodell.namnmodellLage(),
       });
 
       /// Funktionsbeskrivningen. Samma rader som modellen och hjälpen läser.
@@ -3357,14 +4098,16 @@ async function hanteraAnrop(req, res) {
       /// bett om.
       if (vag === '/api/post/konton') {
         if (!Post.finns()) return json(res, 200, { finns: false, konton: [] });
-        try { return json(res, 200, { finns: true, konton: await Post.konton() }); }
+        // Med förvalet för etiketten (2026-10-10): iCloud och Gmail privat, en
+        // egen domän jobb, annars null — och då frågar gränssnittet.
+        try { return json(res, 200, { finns: true, konton: (await Post.konton()).map(k => ({ ...k, forval: Konton.forvalEtikett(k) })) }); }
         catch (e) { return json(res, 200, { finns: true, konton: [], fel: e.message, tillstand: Boolean(e.tillstand) }); }
       }
 
       /// Kalendrarna på datorn.
       if (vag === '/api/kalender/kalendrar') {
         if (!Kalender.finns()) return json(res, 200, { finns: false, kalendrar: [] });
-        try { return json(res, 200, { finns: true, kalendrar: await Kalender.kalendrar() }); }
+        try { return json(res, 200, { finns: true, kalendrar: (await Kalender.kalendrar()).map(k => ({ ...k, forval: Konton.forvalEtikett(k) })) }); }
         catch (e) { return json(res, 200, { finns: true, kalendrar: [], fel: e.message, tillstand: Boolean(e.tillstand) }); }
       }
 
@@ -3531,7 +4274,8 @@ async function hanteraAnrop(req, res) {
         // Vad som faktiskt gäller, ur launchd-filerna — inte bara ur valet.
         korLage: await Bakgrund.lage({ data: dataDir }), korDold: Boolean(installningar.agentDold),
         korFinns: Bakgrund.finns(),
-        fynd: fynd.slice(0, 200),
+        // Filtret på sfär (2026-10-10): ?etikett=jobb ger bara jobbets fynd.
+        fynd: (url.searchParams.get('etikett') ? fynd.filter(f => f.sfar === Konton.etikettUr(url.searchParams.get('etikett'))) : fynd).slice(0, 200),
         osedda: fynd.filter(f => !f.sett).length,
         undanlagda: undanlagt.length,
         uppdrag: uppdrag.map(Uppdrag.sammandrag),
@@ -3539,7 +4283,7 @@ async function hanteraAnrop(req, res) {
         vecka: await veckanNu().catch(() => []),
         // Vad som kör, för pluppen uppe till höger. `vantar` betyder att
         // agenten står tillbaka för samtalet just nu.
-        lage: { slar: slarNu, vantar: korningar.size > 0, kallor: agentInst(), behov: agentBehov() },
+        lage: { slar: slarNu, vantar: korningar.size > 0, kallor: agentInst(), behov: agentBehov(), etiketter: Konton.etiketter(agentInst()) },
       });
 
       // Det undanlagda. Ett klick bort, med skäl — "kassera skit" betyder
@@ -3570,6 +4314,24 @@ async function hanteraAnrop(req, res) {
         profil: installningar.profil || Profil.TOM,
         har: Profil.harNagot(installningar.profil),
       });
+
+      // Banken (/du, 2026-10-10): allt Maximus vet om dig, rad för rad med
+      // källa. Raderna och tabellen skrivs av regler (lib/banken.mjs).
+      if (vag === '/api/du/banken') {
+        const { lage, rader } = await bankLage(jag);
+        return json(res, 200, { uppgifter: rader, text: Banken.sammanfattning(rader, { vill: lage.profil.vill }), profil: lage.profil });
+      }
+
+      // Kollegan (2026-10-10): inställningen, förslagen som väntar och en
+      // knack som väntar på svar.
+      if (vag === '/api/kollega') {
+        // En användare, en dator: med utökningen (flera konton) finns kollegan inte.
+        if (IDENTITET) return json(res, 404, { error: tx('srv.fel.okandVag') });
+        const m = await kollegaMinne();
+        const k = m.knack.oppen;
+        return json(res, 200, { lage: Kollega.lage(installningar), forslag: m.forslag.filter(f => f.status === 'forslag').map(Kollega.visas),
+          knack: k ? { id: k.id, fraga: k.fraga, halsning: Kollega.halsning(k) } : null });
+      }
 
       // Det agenten vill göra men inte får utan att fråga.
       if (vag === '/api/agent/fragor') return json(res, 200, { fragor: agentbegaran.filter(b => !b.svar) });
@@ -3697,6 +4459,8 @@ async function hanteraAnrop(req, res) {
           arkivSkal: s.arkiverad && s.arkiv?.av === 'agenten' ? s.arkiv.skal : null,
           helig: s.helig || null,
           avAgenten: !!s.avAgenten, agentsamtal: !!s.agentsamtal, a2a: !!s.a2a, uppdrag: s.uppdrag || null, arbete: arbeteI(s.id),
+          // Källans etiketter (2026-10-10): listan går att filtrera på dem.
+          etiketter: Array.isArray(s.etiketter) ? s.etiketter : [],
           las: s.las?.styrka || null, webb: s.webb || 'av', minne: s.minne || 'isolerat',
           // Stängd betyder "förseglad och koden är inte inne just nu".
           //
@@ -4126,11 +4890,18 @@ async function hanteraAnrop(req, res) {
         //
         // Byter sessionen behandling maskeras allt igen nästa gång filen
         // läses, så den som ångrar sitt Original får tillbaka masken.
-        const utanMask = valet(sess).behandling === 'original';
+        //
+        // Med den lokala modellen gäller valet inte (Auro 2026-10-10), och då
+        // maskeras bilagan som förval: modellen läser originalet ändå, och
+        // den maskerade vyn är den du tar med dig eller ber om i samtalet.
+        const utanMask = behandlingNu(sess) === 'original';
         const f = utanMask
           ? { maskerad: d.text, karta: sess.karta || [], raknare: sess.raknare || {}, nya: [], rojning: null }
           : await forbered(d.text, { karta: sess.karta || [], raknare: sess.raknare || {},
-              sorter: galler(installningar) });
+              sorter: galler(installningar), modelltak: 20000 });
+        // Det namnmodellen inte hann med på tjugo sekunder läses i
+        // bakgrunden, en gång, så att frågorna om dokumentet inte väntar.
+        if (utanMask) Namnmodell.iBakgrunden(d.text);
         sess.karta = f.karta;
         sess.raknare = f.raknare;
         // Bilden behålls.
@@ -4253,11 +5024,143 @@ async function hanteraAnrop(req, res) {
     if (vag === '/api/du/text') {
       let du;
       try { du = Du.egenText(kropp.text); } catch (e) { return json(res, 422, { error: e.message }); }
-      installningar = { ...installningar, profil: Profil.las({ ...(installningar.profil || {}), egen: du.text }) };
+      installningar = { ...installningar, profil: Banken.markera(installningar.profil, Profil.las({ ...(installningar.profil || {}), egen: du.text })) };
       await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
       if (kropp.analysera === false || !(await grindSvarar())) return json(res, 200, { kalla: 'text', sparad: true, forslag: null, senare: true });
       const forslag = await duForslag(du);
       return json(res, 200, { kalla: 'text', sparad: true, forslag, ...(forslag ? {} : { error: tx('srv.du.ingetForslag') }) });
+    }
+
+    // Banken (/du): en kort mening ovanpå tabellen, av den lokala modellen.
+    // Svarar den inte står tabellen ensam — den behöver ingen modell.
+    if (vag === '/api/du/banken/sammanfatta') {
+      const { rader } = await bankLage(jag);
+      if (!rader.some(r => r.andras) || !(await grindSvarar())) return json(res, 200, { text: null });
+      const r = await svaraLokalt(Banken.sammanfattaPrompt(rader), { plats: 'efterat', tak: 300, timeout: 90000, baraLokalt: true }).catch(() => '');
+      return json(res, 200, { text: String(r || '').trim().slice(0, 800) || null });
+    }
+
+    // Banken: det du skrev blir ett förslag. Ingenting ändras här — förslaget
+    // visas, och ändras först i /api/du/banken/godkann.
+    if (vag === '/api/du/banken/tolka') {
+      const text = String(kropp.text || '').trim().slice(0, 1500);
+      if (!text) return json(res, 422, { error: tx('srv.banken.tomText') });
+      return json(res, 200, await bankTolka(jag, text));
+    }
+
+    // Banken: ditt ja eller nej. Ja gör samma ändringar som visades — på
+    // samma läge, annars inga (409). Ta bort tar bort ur filerna; liggaren
+    // får en lokal rad med antal och id:n, aldrig texten.
+    if (vag === '/api/du/banken/godkann') {
+      const id = String(kropp.id || '');
+      const f = bankForslag.get(id);
+      bankForslag.delete(id);
+      if (!f || f.agare !== (jag?.id || null) || Date.now() - f.tid > BANK_FORSLAG_MS) return json(res, 410, { error: tx('srv.banken.forslagetBorta') });
+      if (kropp.ja !== true) return json(res, 200, { avbrutet: true });
+      const { lage } = await bankLage(jag);
+      if (Banken.fingeravtryck(lage) !== f.avtryck) return json(res, 409, { error: tx('srv.banken.andratsSedan') });
+      const r = Banken.tillamp(lage, f.ops, { uppdrag });
+      if (visatAvtryck([r.andringar, (await glomAgentLager(f.ops)).antal]) !== f.visat) return json(res, 409, { error: tx('srv.banken.andratsSedan') });
+      installningar = { ...installningar, profil: Profil.las(r.lage.profil), exempel: r.lage.exempel };
+      await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
+      if (lage.du && r.lage.du) await maximus.skrivFil(join(dataDir, 'du.json'), JSON.stringify(r.lage.du));
+      // Och ur agentens egna lager (punkt 10).
+      const { antal: lager } = await glomAgentLager(f.ops, { spara: true });
+      await liggare({ frontier: tx('srv.liggare.banken'), vag: 'lokal', skickat: Banken.liggarrad(r.andringar, lager), mottaget: tx('srv.liggare.gjort'),
+        tecken: 0, sekunder: 0, anvandare: jag?.id || null, session: null, aktor: tx('srv.helig.duTitel') }).catch(() => {});
+      await skrivOmDuRad(lage.profil, lage.du).catch(() => {});
+      const { lage: nu, rader } = await bankLage(jag);
+      return json(res, 200, { andringar: r.andringar.length + Object.values(lager).reduce((a, b) => a + b, 0), profil: nu.profil, uppgifter: rader, text: Banken.sammanfattning(rader, { vill: nu.profil.vill }) });
+    }
+
+    // ── Kollegan (2026-10-10) ───────────────────────────────────────────
+    // Minnet och närvaron gäller en användare vid en dator: med utökningen
+    // (flera konton) finns kollegan inte.
+    if (IDENTITET && vag.startsWith('/api/kollega/')) return json(res, 404, { error: tx('srv.fel.okandVag') });
+    // Förslagen nu, inte om tre timmar. Ingenting skickas.
+    if (vag === '/api/kollega/foresla') return json(res, 200, await kollegaForeslar({ tvinga: true }));
+
+    // Ditt svar på ett förslag: ta (med din ändrade text) eller avböj med
+    // ett skäl. Båda sparas och styr nästa varv; "fråga inte om X" stoppar
+    // allt som nämner X. Ta skickar ingenting (se taKollegaForslag).
+    if (vag === '/api/kollega/svar') {
+      const m = await kollegaMinne();
+      const f = m.forslag.find(x => x.id === String(kropp.id || ''));
+      if (!f) return json(res, 404, { error: tx('srv.kollega.finnsInte') });
+      if (f.status !== 'forslag') return json(res, 409, { error: tx('srv.kollega.redanBesvarat') });
+      if (kropp.svar === 'avboj') {
+        const ny = Kollega.avboj(m, f, String(kropp.skal || ''));
+        await skrivKollega(ny);
+        const g = ny.forslag.find(x => x.id === f.id);
+        await speglaKollega(g);
+        return json(res, 200, { forslag: Kollega.visas(g) });
+      }
+      if (kropp.svar !== 'ta') return json(res, 422, { error: tx('srv.kollega.taEllerAvboj') });
+      let r;
+      try { r = await taKollegaForslag(f, { text: typeof kropp.text === 'string' ? kropp.text : null, start: kropp.start || null, slut: kropp.slut || null }); }
+      catch (e) { return json(res, 200, { error: e.message }); }
+      const ny = Kollega.tag(await kollegaMinne(), f);
+      await skrivKollega(ny);
+      const g = ny.forslag.find(x => x.id === f.id);
+      await speglaKollega(g);
+      return json(res, 200, { forslag: Kollega.visas(g), ...r });
+    }
+
+    // Fönstret säger om det står i vila. Utan livstecken i tre minuter
+    // räknas det som i vila (lib/kollega.mjs).
+    if (vag === '/api/kollega/narvaro') {
+      narvaro = { vila: kropp.vila !== false, nar: Date.now() };
+      return json(res, 200, { ok: true });
+    }
+
+    // Knacken: visad (räknas mot "högst var N:e dag" först nu), inte nu,
+    // fråga aldrig om det här, klar, eller stäng av knack-knack helt.
+    if (vag === '/api/kollega/knack') {
+      const id = String(kropp.id || ''), svar = String(kropp.svar || '');
+      // Klockan går bara att flytta i proven ("inte två gånger samma dag").
+      const nu = PROV_KOLLEGA && kropp.nu ? new Date(kropp.nu) : new Date();
+      let m = await kollegaMinne();
+      if (svar === 'stang') {
+        installningar = { ...installningar, kollega: { ...Kollega.lage(installningar), knack: false } };
+        await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
+        m = Kollega.knackSvar(m, id, 'klar');
+      } else if (svar === 'visad') m = Kollega.knackVisad(m, id, { nu });
+      else if (['inte_nu', 'aldrig', 'klar'].includes(svar)) m = Kollega.knackSvar(m, id, svar, { nu });
+      else return json(res, 422, { error: tx('srv.kollega.knackSvar') });
+      await skrivKollega(m);
+      return json(res, 200, { lage: Kollega.lage(installningar) });
+    }
+
+    // Ditt svar på frågan blir ett förslag på ändringar i /du — samma
+    // tolkning och samma godkännande (/api/du/banken/godkann). Inget sparas
+    // här. Sedan nästa fråga, högst tre i en knack.
+    if (vag === '/api/kollega/knack/svar') {
+      const m = await kollegaMinne();
+      const k = m.knack.oppen;
+      if (!k || k.id !== String(kropp.id || '')) return json(res, 410, { error: tx('srv.kollega.knackBorta') });
+      const text = String(kropp.text || '').trim().slice(0, 1500);
+      if (!text) return json(res, 422, { error: tx('srv.banken.tomText') });
+      const r = await bankTolka(jag, text, { fraga: k.fraga });
+      const efter = Kollega.knackSvar(await kollegaMinne(), k.id, 'besvarad');
+      const nasta = (k.fragade || []).length < Kollega.FRAGOR_PER_KNACK
+        ? Kollega.nyKnack(Kollega.knackAmnen({ profil: installningar.profil, du: await lasDu(), fynd: kollegaFynd(), minne: efter }), { fragade: k.fragade || [] }) : null;
+      efter.knack.oppen = nasta ? { ...nasta, id: k.id, visad: k.visad || new Date().toISOString() } : null;
+      await skrivKollega(efter);
+      return json(res, 200, { ...r, ...(r.forslag || r.error ? {} : { svar: tx('srv.kollega.knackNoterat') }), foljd: nasta ? nasta.fraga : null });
+    }
+
+    // Bara proven: ett påhittat dygn (fynd, möten), vilan, och ett varv
+    // eller en knack med en klocka provet styr.
+    if (vag === '/api/kollega/prov') {
+      if (!PROV_KOLLEGA) return json(res, 404, { error: tx('srv.fel.okandVag') });
+      if ('fynd' in kropp) kollegaProv.fynd = Array.isArray(kropp.fynd) ? kropp.fynd : null;
+      if ('moten' in kropp) kollegaProv.moten = Array.isArray(kropp.moten) ? kropp.moten : null;
+      if ('vilaSek' in kropp) kollegaProv.vilaSek = kropp.vilaSek == null ? null : Number(kropp.vilaSek);
+      if ('agent' in kropp) kollegaProv.agent = kropp.agent ? { ...AGENT_AV, ...agentUr(kropp.agent) } : null;
+      const nu = kropp.nu ? new Date(kropp.nu) : new Date();
+      if (kropp.knacka) return json(res, 200, await knacka({ nu }));
+      if (kropp.foresla) return json(res, 200, await kollegaForeslar({ nu, tvinga: true }));
+      return json(res, 200, { ok: true });
     }
 
     if (vag === '/api/du/lank') {
@@ -5168,6 +6071,26 @@ async function hanteraAnrop(req, res) {
       return json(res, 200, { valda: [...g], paketNu: paketFor(g) });
     }
 
+    // Namnmodellen på/av (Auro 2026-10-10). Av betyder
+    // bara reglerna, som före den; på betyder reglerna och modellen.
+    if (vag === '/api/namnmodell') {
+      if (typeof kropp.pa === 'boolean') {
+        installningar = { ...installningar, namnmodell: kropp.pa };
+        await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
+        Namnmodell.satNamnmodell({ pa: kropp.pa });
+      }
+      return json(res, 200, await Namnmodell.namnmodellLage());
+    }
+    // Hämtar namnmodellen: låst revision, storlek och sha256 per fil, en rad
+    // i liggaren per hämtning. Som örat och modellen — bara på begäran.
+    if (vag === '/api/namnmodell/hamta') {
+      try {
+        const r = await Namnmodell.hamtaNamnmodell({ liggare: hamtningsliggare(jag),
+          onFramsteg: f => sandAlla({ typ: 'namnmodell', ...f }) });
+        return json(res, 200, { ...(await Namnmodell.namnmodellLage()), redan: r.redan });
+      } catch (e) { return json(res, 502, { error: e.message }); }
+    }
+
 
     // Utökningens vägar med kropp.
     if (await utokning?.rutt?.(req, res, url, vag, jag, kropp)) return;
@@ -5217,6 +6140,12 @@ async function hanteraAnrop(req, res) {
       return json(res, 200, { ok: true });
     }
 
+    // Öppnar Program-mappen i Finder, så att appen kan flyttas dit
+    // (2026-10-10, se appPlats).
+    if (vag === '/api/oppna-program') {
+      execFileCb('/usr/bin/open', ['/Applications'], () => {});
+      return json(res, 200, { ok: true });
+    }
     if (vag === '/api/uppdatering') {
       // Opt-in (2026-10-04). Kontrollen gick förut av sig själv tills någon
       // stängde av den. Nu frågar Maximus en gång, och utan ett ja går
@@ -5291,6 +6220,39 @@ async function hanteraAnrop(req, res) {
     /// informationsklassning, och användaren ser vad som döljs innan något
     /// skickas. Ett mejl ska inte ha en gräddfil förbi grinden för att det
     /// råkade komma per post.
+    /// Originalet bakom ett kort i agentens tur (2026-10-10, lib/underlag.mjs).
+    ///
+    /// Kortet slås upp i sessionen — referensen kommer härifrån, aldrig ur
+    /// anropet. Utan `app` svarar vägen med texten, läst lokalt, för att
+    /// visas i samtalet. Med `app` öppnas originalet där det bor: brevet i
+    /// Mail, filen i sitt program, sidan i webbläsaren. Ingenting skickas.
+    if (vag === '/api/underlag/original') {
+      const s = minSession(String(kropp.session || ''), jag);
+      const k = s?.turer.find(t => t.id === String(kropp.tur || ''))?.underlag?.[Math.trunc(Number(kropp.nr)) - 1];
+      if (!k) return json(res, 404, { error: tx('srv.fel.finnsInte') });
+      const r = k.ref || {};
+      if (kropp.app === true) {
+        let mal = null;
+        if (r.sort === 'mejl' && r.id) mal = `message://${encodeURIComponent(`<${r.id.replace(/^<|>$/g, '')}>`)}`;
+        else if ((r.sort === 'sida' || r.sort === 'flode') && /^https?:\/\//i.test(r.url || '')) mal = r.url;
+        else if (r.sort === 'fil') {
+          // Samma gräns som läsningen: bara inom mapparna du gett lov till.
+          const a = agentInst();
+          const fil = await realpath(String(r.sokvag || '')).catch(() => null);
+          for (const m of [...(a.mappar || []), ...(a.mapp ? [a.mapp] : [])]) {
+            const rot = await realpath(m.sokvag).catch(() => null);
+            if (rot && fil && fil.startsWith(rot + sep)) { mal = fil; break; }
+          }
+        }
+        if (!mal) return json(res, 422, { error: tx('srv.underlag.ingenApp') });
+        if (process.env.MAXIMUS_PROV !== '1') execFileCb('/usr/bin/open', [mal], () => {});
+        return json(res, 200, { oppnat: r.sort });
+      }
+      let text = null;
+      try { text = await lasOriginal(r); } catch { /* kortets egen text nedan */ }
+      return json(res, 200, { titel: k.titel, var: Underlag.beskriv(r), original: Boolean(text), text: String(text || k.reserv || '') });
+    }
+
     if (vag === '/api/post/oppna') {
       if (!Post.finns()) return json(res, 400, { error: tx('srv.fel.mailBaraMac') });
       let brev;
@@ -5298,16 +6260,7 @@ async function hanteraAnrop(req, res) {
       catch (e) { return json(res, 422, { error: e.message }); }
       if (!brev) return json(res, 404, { error: tx('srv.post.brevOlasbart') });
 
-      const delat = Post.delaTrad(brev.text);
-      const text = [
-        tx('srv.post.fran', { v: brev.fran }),
-        tx('srv.post.amne', { v: brev.amne }),
-        brev.tid ? tx('srv.post.tid', { v: brev.tid }) : null,
-        brev.bilagor.length ? tx('srv.post.bilagor', { v: brev.bilagor.join(', ') }) : null,
-        '',
-        delat.nytt || brev.text,
-        delat.citerat ? tx('srv.post.tidigareITraden', { citerat: delat.citerat }) : '',
-      ].filter(v => v !== null).join('\n').trim();
+      const text = brevSomText(brev);
 
       // Var samtalet kom ifrån.
       //
@@ -5325,6 +6278,8 @@ async function hanteraAnrop(req, res) {
                     konto: String(kropp.konto || '') || null,
                     // Brevet självt (2026-10-10): ett svar går på originalet.
                     id: String(kropp.id || '') || null, lada: String(kropp.lada || 'INBOX') },
+        // Kontots etikett (2026-10-10), så att samtalet går att filtrera på den.
+        etiketter: [Konton.kontoEtikett(agentInst().epost, String(kropp.konto || ''))].filter(Boolean),
         lage: installningar.lage, webb: installningar.webb || 'av' };
 
       const f = await forbered(text, { karta: [], raknare: {}, sorter: galler(installningar) });
@@ -5444,7 +6399,9 @@ async function hanteraAnrop(req, res) {
       if (kropp.forslag) {
         const f = Svar.nyttForslag({ brev: { id: kropp.forslag.brevId || randomUUID(), fran: kropp.forslag.fran || 'Prov <prov@example.com>',
           amne: kropp.forslag.amne || 'Prov', namn: kropp.forslag.namn || 'Prov', text: kropp.forslag.brevtext || '' },
-          konto: 'Prov', text: kropp.forslag.text || '', session: kropp.forslag.session || null });
+          // Kontot och lådan går att välja (2026-10-10): provet med två konton.
+          konto: String(kropp.forslag.konto || 'Prov'), lada: String(kropp.forslag.lada || 'INBOX'),
+          etikett: Konton.etikettUr(kropp.forslag.etikett), text: kropp.forslag.text || '', session: kropp.forslag.session || null });
         svarsforslag.push(f); await sparaSvarsforslag();
         // Med kortet: raden i Inkorgen (eller Agenten), som agenten skriver den.
         if (kropp.kort) {
@@ -5479,6 +6436,9 @@ async function hanteraAnrop(req, res) {
         turer: [], karta: [], raknare: {},
         ursprung: { sort: 'möte', rubrik: h.rubrik || null, start: h.start || null,
                     deltagare: Array.isArray(h.deltagare) ? h.deltagare.slice(0, 20) : [] },
+        // Kalenderns etikett (2026-10-10): filtret, och mötesförslag i samtalet
+        // hamnar i en kalender med samma etikett.
+        etiketter: [Konton.kalenderFor(agentInst().kalender, { kalender: String(h.kalender || ''), kalenderId: h.kalenderId || null }).etikett].filter(Boolean),
         lage: installningar.lage, webb: installningar.webb || 'av' };
 
       const f = await forbered(text, { karta: [], raknare: {}, sorter: galler(installningar) });
@@ -5735,6 +6695,7 @@ async function hanteraAnrop(req, res) {
     // med den nivå du väljer. Ingenting skickas.
     if (vag === '/api/moln/forhandsgranska') {
       const text = String(kropp.text || '').slice(0, 2000);
+      await Namnmodell.forbered([text]).catch(() => {});
       const { meddelanden, antal } = Moln.maskeraMeddelanden([{ role: 'user', content: text }], { niva: kropp.maskering });
       return json(res, 200, { ut: meddelanden[0].content, antal, maskering: Moln.maskeringUr(kropp.maskering) });
     }
@@ -5778,7 +6739,9 @@ async function hanteraAnrop(req, res) {
     // egen fil och slippa masken.
     const mNyhetBifoga = /^\/api\/nyheter\/([\w-]+)\/bifoga$/.exec(vag);
     if (mNyhetBifoga) {
-      const f = fynd.find(x => x.id === mNyhetBifoga[1] && uppdrag.find(u => u.id === x.uppdrag)?.nyheter);
+      // Också andra publika webbkällor (2026-10-10): en sida eller en
+      // sökträff som agenten läst. Märkt av källan när den lästes.
+      const f = fynd.find(x => x.id === mNyhetBifoga[1] && (uppdrag.find(u => u.id === x.uppdrag)?.nyheter || (x.publik === true && !x.brev)));
       const sess = minSession(String(kropp.session || ''), jag);
       if (!f?.url || !sess) return json(res, 404, { error: tx('srv.nyheter.ellerSamtalFinnsInte') });
       let r = null;
@@ -5845,6 +6808,11 @@ async function hanteraAnrop(req, res) {
       const d = { konto: String(kropp.konto || '').slice(0, 120), lada: String(kropp.lada || 'INBOX').slice(0, 120),
         mapp: String(kropp.mapp || '').slice(0, 120), sokvag: String(kropp.sokvag || '').slice(0, 500) };
       if (d.sokvag) d.namn = Mappar.namnPa(d.sokvag);
+      // Flera konton och kalendrar, med etikett (2026-10-10). Läses och
+      // prövas i lib/konton.mjs; det som inte känns igen faller bort.
+      if (Array.isArray(kropp.konton)) d.konton = kropp.konton.slice(0, 12);
+      if (Array.isArray(kropp.kalendrar)) d.kalendrar = kropp.kalendrar.slice(0, 30);
+      if ('etikett' in kropp) d.etikett = Konton.etikettUr(kropp.etikett);
       const b = Tillstand.beslut(id, svar, d);
       if (!b.ok) return json(res, 422, { error: b.fel });
       if (id === 'mapp' && svar === 'ja') {
@@ -5910,6 +6878,14 @@ async function hanteraAnrop(req, res) {
           } catch (e) { fel.hor = e.message; sand('hor', { fel: e.message }); }
         })();
 
+      // Namnmodellen följer med starten (Auro
+      // 2026-10-10): 150 MB från en låst revision, i liggaren som de andra.
+      // Den väntas inte in — går hämtningen inte gäller reglerna, och felet
+      // loggas.
+      if (process.platform === 'darwin' && installningar.namnmodell !== false) {
+        Namnmodell.hamtaNamnmodell({ liggare: hamtningsliggare(jag) })
+          .catch(e => console.log(`  namnmodellen: hämtningen gick inte (${e.message}) — bara reglerna gäller`));
+      }
       Promise.all([tanker, hor]).then(async () => {
         if (!fel.tanker) {
           // `klar` är det gamla märket för "starten är gjord". Det lästes av
@@ -6202,6 +7178,8 @@ async function hanteraAnrop(req, res) {
         }
         kropp.svar = { forslag: Svar.FORSLAGSLAGEN.includes(v.forslag) ? v.forslag : Svar.forslagsLage(installningar), signaturer: sig };
       }
+      // Kollegan (2026-10-10): förslag på/av, knack-knack på/av och högst var N:e dag.
+      if ('kollega' in kropp) kropp.kollega = Kollega.installningUr(kropp.kollega, installningar.kollega);
       // Örat: svensk eller snabb, inget annat.
       if ('ora' in kropp) { if (!['svensk', 'snabb'].includes(kropp.ora)) delete kropp.ora; else satOra(kropp.ora); }
       // Dikteringen (Fas 42): sekunder tystnad som skickar; 0 = bara "skicka".
@@ -6209,7 +7187,11 @@ async function hanteraAnrop(req, res) {
       // Språket: automatiskt eller ett som finns i public/sprak/, inget annat.
       if ('sprak' in kropp && !(kropp.sprak === 'auto' || Sprakstod.tillgangliga().includes(kropp.sprak))) delete kropp.sprak;
       // Profilen läses fält för fält som allt annat. Tre fält, inga andra.
-      if ('profil' in kropp) kropp.profil = kropp.profil === null ? null : Profil.las(kropp.profil);
+      // Varifrån varje ändrat fält kom (/du): ur förslaget eller ur dig. Det
+      // du lagt till i /du ändras bara där — en kopia i gränssnittet som
+      // hunnit bli gammal ska inte kunna skriva tillbaka det du tagit bort.
+      if ('profil' in kropp) kropp.profil = kropp.profil === null ? null
+        : Banken.markera(installningar.profil, Profil.las(kropp.profil), { forslag: (await lasDu())?.forslag || null });
       const stallOmHjartat = 'agent' in kropp;
       installningar = { ...installningar, ...kropp };
       await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
@@ -6375,8 +7357,11 @@ async function foljerMed(sess, fraga) {
       // står den i grinden, och det användaren godkänner är det som går.
       // Den kostar sekunder hos den lokala modellen — men den som valt
       // Anonymiserat har bett om just den behandlingen.
-      const valt = valet(sess);
-      if (valt.behandling === 'anonym' && klar.maskerad) {
+      //
+      // Bara när en molnmodell svarar (Auro 2026-10-10): mot den lokala
+      // gäller valet inte, och då är det maskerade kortet det du får. Vill
+      // du ha texten anonymiserad ber du om det i samtalet.
+      if (behandlingNu(sess) === 'anonym' && klar.maskerad) {
         try {
           const vagare = await skrivOm(klar.maskerad, {});
           if (vagare && vagare !== klar.maskerad) {
@@ -6434,48 +7419,19 @@ async function foljerMed(sess, fraga) {
       if (stangd(s)) return json(res, 423, { error: tx('srv.fel.forsegladAngeKoden') });
       const f = (s.filer || []).find(x => x.id === mAnon[2]);
       if (!f) return json(res, 404, { error: tx('srv.fel.bilaganFinnsInte') });
+      // En publik källa är redan publik (2026-10-10): inget att anonymisera.
+      if (f.publik) return json(res, 409, { error: tx('srv.fel.publikKalla') });
 
       json(res, 202, { igang: true });
       void (async () => {
-        const bitar = stycken(f.maskerad, { minsta: 400, storsta: 2200 });
-        const ut = [];
-        let lamnade = 0;
-        // Styckena skickas i förväg. Kortet i samtalet ritar dem direkt och
-        // byter ut ett i taget medan modellen arbetar — som ett dokument som
-        // redigeras, inte som en förloppsindikator.
-        sand(s.id, { typ: 'anonym', fil: f.id, borjan: true, block: bitar.length, bitar });
         try {
-          for (const [i, bit] of bitar.entries()) {
-            // Vad stycket innehåller som pekar ut. Skickas innan modellen
-            // börjat, så att den som ser på vet vad den letar efter.
-            //
-            // Modellens eget resonemang vore ett annat sätt att visa arbetet,
-            // och det går att strömma. Mätt 2026-09-25: Gemma 4 12B skrev
-            // 9 306 tecken tanke om ett enda stycke och hann aldrig fram till
-            // svaret innan tiden tog slut. Reglerna vet samma sak på noll tid.
-            sand(s.id, { typ: 'anonym', fil: f.id, letar: vadFinns(bit) });
-            const efter = await svaraLokalt(tx('srv.anonym.textenEtikett', { generalisera: GENERALISERA, bit }), {
-              onText: t => sand(s.id, { typ: 'anonym', fil: f.id, bit: t }),
-            });
-            // Modellen inleder ibland med "Här är den omskrivna texten…" och
-            // en avdelare, trots att instruktionen säger texten och inget
-            // annat. Det är prat om arbetet, inte arbetet.
-            const d = blevVagare(bit, rensaPrat(efter));
-            // Blev stycket inte vagare behålls originalet — men det som redan
-            // strömmats ut måste då bytas ut, annars visar rutan något annat
-            // än det som sparas.
-            ut.push(d.ok ? rensaPrat(efter) : bit);
-            if (!d.ok) lamnade++;
-            sand(s.id, { typ: 'anonym', fil: f.id, klartBlock: i + 1, block: bitar.length,
-              behollet: !d.ok, text: ut[ut.length - 1],
-              // Vad som faktiskt blev vagare. Det går att granska, till
-              // skillnad från en försäkran om att något blev bättre.
-              vagt: d.ok ? blevVagt(bit, rensaPrat(efter)) : [] });
-          }
-          f.anonym = ut.join('\n\n');
+          // Alltid den lokala modellen (2026-10-10): knappen lovar att "den
+          // lokala modellen skriver om", också när molnet är påslaget.
+          const a = await anonymiseraStycken(f.maskerad, { baraLokalt: true, pa: h => sand(s.id, { typ: 'anonym', fil: f.id, ...h }) });
+          f.anonym = a.text;
           f.anonymRojning = bedomRojning(f.anonym);
           await spara(s);
-          sand(s.id, { typ: 'anonym', fil: f.id, klar: true, text: f.anonym, lamnade,
+          sand(s.id, { typ: 'anonym', fil: f.id, klar: true, text: f.anonym, lamnade: a.lamnade,
             rojning: f.anonymRojning });
         } catch (e) {
           sand(s.id, { typ: 'anonym', fil: f.id, fel: e.message });
@@ -7168,7 +8124,8 @@ async function foljerMed(sess, fraga) {
           u.tillstand = 'vantar'; u.nasta = new Date(Date.now() + u.takt * 60000).toISOString();
         }
         // Jobb, privat eller båda (Fas 36).
-        if ('sfar' in kropp) u.sfar = kropp.sfar === 'jobb' || kropp.sfar === 'privat' ? kropp.sfar : null;
+        // Sedan 2026-10-10 också en egen etikett, som källorna bär ("styrelsen").
+        if ('sfar' in kropp) u.sfar = Konton.etikettUr(kropp.sfar);
         // Källorna (Fas 35): vad uppdraget läser, valt i vyn. Bara det du gett
         // lov till; ett ämne och en sida behåller sina inställningar.
         if (Array.isArray(kropp.kallor)) {
@@ -7459,10 +8416,20 @@ async function foljerMed(sess, fraga) {
         s.raknare = forberedd.raknare;
       }
 
+      // "Maskera den här texten: …", "anonymisera bilagan" (Auro 2026-10-10):
+      // en begäran om maskering görs här, lokalt, och går aldrig vidare till
+      // modellen, webben eller molnet. Se maskeraPaBegaran(). Bara det du
+      // skrivit själv — inte Maximus egna frågor och inte telefonens.
+      const maskbegaran = kropp.av !== 'maximus' && kropp.franTelefonen !== true
+        ? Maskbegaran.avsikt(forberedd.original) : null;
+      if (maskbegaran) return maskeraPaBegaran(s, forberedd.original, maskbegaran, res);
+
+      // Behandlingen gäller bara när en molnmodell svarar (Auro 2026-10-10).
+      const gallerNu = behandlingNu(s);
       const tur = { id: randomUUID(), tid: new Date().toISOString(), status: 'igang',
         fraga: forberedd.original, maskerad: forberedd.maskerad,
         maskerat: lokalt ? 0 : (forberedd.funna || []).length, svar: '', frontier: null,
-        tolka: val.tolka, lokalt, behandling: val.behandling, webb: kropp.webb === true || kropp.webb === 'auto', anmarkningar: [], kvitto: [], kallor: [],
+        tolka: val.tolka, lokalt, ...(gallerNu ? { behandling: gallerNu } : {}), webb: kropp.webb === true || kropp.webb === 'auto', anmarkningar: [], kvitto: [], kallor: [],
         // Frågor Maximus ställer själv (sammanfattningen av ett nytt
         // underlag). Ritas som Maximus replik med `sager`, inte som din.
         ...(kropp.av === 'maximus' ? { av: 'maximus', sager: String(kropp.sager || '').slice(0, 300) } : {}),
@@ -7494,6 +8461,8 @@ async function foljerMed(sess, fraga) {
 
       const kontroll = new AbortController();
       korningar.set(s.id, kontroll);
+      // Företrädet (punkt 10): det agenten har igång mot modellen avbryts.
+      avbrytAgenten();
       sandAlla({ typ: 'lista', agare: s.agare });
       void (async () => {
         try {
@@ -7528,6 +8497,21 @@ async function foljerMed(sess, fraga) {
 
 
           let historik = s.turer.filter(t => t.status === 'klar' && t.svar).map(t => ({ fraga: t.fraga, svar: t.svar }));
+
+          // Underlaget agenten bifogade (Auro 2026-10-10: "den ena har
+          // sammanhanget och den andra inte"). Följdfrågan efter ett fynd
+          // eller en undersökning får originalen bakom korten — lästa lokalt
+          // via referensen, beskurna mot frågan och inom stängslet — inte
+          // bara rubrikerna i agentens lista. Se lib/underlag.mjs.
+          const underlagKort = tur.av === 'maximus' || tur.franTelefonen ? [] : Underlag.senaste(s.turer).slice(0, 12);
+          const underlagTexter = [];
+          // Bara de kort som svarar mot frågan läses (högst fyra): ett brev i
+          // Mail tar en stund, och tolv brev för en fråga om ett är tolv för många.
+          const lasas = new Set(Underlag.forFragan(underlagKort, underlagKort.map(k => `${k.utdrag} ${k.reserv}`), forberedd.original).map(x => x.nr));
+          // Samtidigt och med en tidsgräns (punkt 10): ett Mail som inte
+          // svarar ska inte hålla frågan i tre minuter. Det som inte hann
+          // läsas står med kortets egen text.
+          underlagTexter.push(...await Underlag.lasManga(underlagKort, (k, i) => (lasas.has(i + 1) ? Underlag.lasHela(k, lasOriginal) : '')));
 
           // Långa samtal lokalt: de äldsta turerna sammanfattas i stället för
           // att kastas. Sammandraget ligger först i prompten och ändras
@@ -7939,7 +8923,11 @@ async function foljerMed(sess, fraga) {
           // när ingenting låg där (2026-10-04). Se lib/handelse.mjs.
           const handelse = tur.av !== 'maximus' && !tur.franTelefonen && Handelse.avsikt(forberedd.original)
             ? await Handelse.las(forberedd.original, { signal: kontroll.signal }).catch(() => null) : null;
-          if (handelse) tur.handelse = { ...handelse, id: randomUUID(), gjort: {} };
+          // Kalendern med samma etikett som underlaget (2026-10-10): ett möte
+          // ur jobbmejlet föreslås i jobbkalendern. Kalender frågar ändå var
+          // det ska ligga — Maximus skriver aldrig i kalendern.
+          const kalendern = handelse ? Konton.kalenderMedEtikett(agentInst().kalender, (s.etiketter || [])[0]) : null;
+          if (handelse) tur.handelse = { ...handelse, id: randomUUID(), gjort: {}, ...(kalendern ? { kalender: kalendern } : {}) };
           // En fråga om dina egna saker (Fas 31): agentslingan med verktygen
           // svarar, ur det den faktiskt läser. Modellen ensam vet ingenting
           // om din kalender. Stegen syns medan de görs, och kvittot säger vad
@@ -7950,6 +8938,7 @@ async function foljerMed(sess, fraga) {
           if (medVerktyg) {
             const NAMN = Object.fromEntries(['mejl', 'kalender', 'lediga_tider', 'paminnelser', 'anteckningar', 'meddelanden', 'mapp', 'las_fil',
               'webbsok', 'las_sida', 'rakna', 'genvagar'].map(v => [v, tx(`srv.steg.verktyg.${v}`)]));
+            NAMN.las_underlag = tx('srv.steg.verktyg.las_underlag');
             slingsvar = await agentSlinga({ uppgift: forberedd.original, session: s.id, tur: tur.id, signal: kontroll.signal, styrning: Boolean(s.agentsamtal) && !tur.franTelefonen, begransad: Boolean(tur.franTelefonen),
               // Din tur, du vid datorn (granskningen 2026-10-09). I ett vanligt
               // samtal följer webben samtalets och turens val: av är av, också
@@ -7959,9 +8948,11 @@ async function foljerMed(sess, fraga) {
               // I Agentens samtal: dina tidigare frågor, inte agentens långa
               // rapporter — fakta om vad den gjort hämtar vad_hande. Rapporterna
               // som sammanhang fick modellen att spåra ur (2026-10-05).
-              sammanhang: s.agentsamtal
+              sammanhang: [s.agentsamtal
                 ? `${tx('srv.agentsamtal.sammanhang')}${historik.filter(h => h.fraga && !/^Agenten såg|^Uppdraget|^The agent saw|^The task/.test(h.fraga)).slice(-3).map(h => tx('srv.agentsamtal.tidigareFraga', { fraga: String(h.fraga).slice(0, 200) })).join('')}`
                 : historik.slice(-3).map(h => tx('srv.slinga.historikRad', { fraga: String(h.fraga || '').slice(0, 300), svar: String(h.svar || '').slice(0, 400) })).join('\n'),
+              Underlag.sammanhang(underlagKort, underlagTexter, { fraga: forberedd.original })].filter(Boolean).join('\n\n'),
+              underlag: underlagKort,
               onSteg: st => sand(s.id, { typ: 'steg', turId: tur.id, steg: 'verktyg',
                 text: st.verktyg === 'vagval' ? tx('srv.steg.vagval', { kort: st.kort }) : `${NAMN[st.verktyg] || st.verktyg}${st.fel ? tx('srv.steg.gickInte') : ''}`, ...(st.fel ? { fel: true } : {}) }),
             }).catch(e => ({ svar: tx('srv.slinga.komInteAt', { fel: e.message }), steg: [] }));
@@ -7977,7 +8968,8 @@ async function foljerMed(sess, fraga) {
           } : handelse ? {
             // En rad; uppgifterna står i kortet under. Två listor med samma
             // innehåll var en för mycket.
-            svar: tx('srv.handelse.forberett', { titel: handelse.titel, inbjudan: handelse.deltagare.length ? tx('srv.handelse.inbjudan') : '' }),
+            svar: tx('srv.handelse.forberett', { titel: handelse.titel, inbjudan: handelse.deltagare.length ? tx('srv.handelse.inbjudan') : '' })
+              + (kalendern ? tx('srv.handelse.iKalendern', { kalender: kalendern.namn, etikett: Konton.etikettNamn(kalendern.etikett) }) : ''),
             kvitto: [{ tid: new Date().toISOString(), aktor: tx('srv.kvitto.lokalModell'), lokalt: true, ms: 0,
               vad: tx('srv.kvitto.handelse') }],
             delar: [],
@@ -8001,7 +8993,7 @@ async function foljerMed(sess, fraga) {
                 // i — och systemblocket ska stå still, annars räknas hela
                 // samtalet om vid nästa fråga (se lib/persona.mjs).
                 persona: s.persona || installningar.persona,
-                bilagor: [...projektfiler, ...(s.filer || [])], policy: installningar.policy, underlag,
+                bilagor: [...projektfiler, ...(s.filer || []), ...Underlag.bilagor(underlagKort, underlagTexter, { fraga: forberedd.original })], policy: installningar.policy, underlag,
                 onSteg: h => sand(s.id, { typ: 'steg', turId: tur.id, ...h }),
                 onDel: h => sand(s.id, { typ: 'del', turId: tur.id, ...h }),
                 onText: (bit, del) => sand(s.id, { typ: 'text', turId: tur.id, bit, del }),

@@ -34,7 +34,9 @@ test('främmande text går genom stängslet, och en styrande text går inte in a
 test('hjärtslaget öppnar ett samtal per uppdrag med behållna, bedömda fynd', async () => {
   const kod = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
   assert.match(kod, /const behallna = \(r\.fynd \|\| \[\]\)\.filter\(f => !f\.obedomd\);/);
-  const f = kod.slice(kod.indexOf('async function fyndsamtal('), kod.indexOf('async function fyndsamtal(') + 3600);
+  // Hela funktionen, inte ett fast antal tecken: den växer (2026-10-10).
+  const start = kod.indexOf('async function fyndsamtal(');
+  const f = kod.slice(start, kod.indexOf('\n}\n', start));
   assert.match(f, /korningar\.size > 0/, 'samtalet har inte företräde');
   assert.match(f, /typ: 'fyndsamtal'/, 'ingen rad där användaren är');
 });
@@ -46,9 +48,10 @@ test('sfären står på ditt språk, aldrig som koden', async () => {
   const f = [{ titel: 'Photography-class.txt', fran: 'My week', vikt: 3, sfar: 'privat', varfor: 'x' },
     { titel: 'Budget', vikt: 1, sfar: 'jobb', varfor: 'y' }];
   const en = S.med('en', () => F.lista(f));
-  assert.match(en, /· personal/);
+  // Private och Work sedan 2026-10-10, samma ord som källornas etiketter.
+  assert.match(en, /· private/);
   assert.match(en, /· work/);
-  assert.doesNotMatch(en, /privat|jobb/);
+  assert.doesNotMatch(en, /\bprivat\b|jobb/);
   const sv = S.med('sv', () => F.lista(f));
   assert.match(sv, /· privat/);
   assert.match(sv, /· jobb/);

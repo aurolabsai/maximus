@@ -14,6 +14,7 @@ import { randomBytes } from 'node:crypto';
 import { agentBehover, KALLOR, VAR } from '../public/behov.js';
 import { egenText, EGEN_MIN, profilPrompt } from '../lib/du.mjs';
 import * as Profil from '../lib/profil.mjs';
+import { ledigPort, avsluta, fejkmodell } from './process.mjs';
 
 test('utan något: profil och källa saknas, i den ordningen', () => {
   assert.deepEqual(agentBehover({}), { klar: false, saknar: ['profil', 'kalla'], kallor: [], oanalyserad: false });
@@ -86,8 +87,12 @@ test('varje körväg går genom grinden i koden', () => {
   // städningen kommer efter, och når aldrig hit utan grinden.
   const grind = slag.indexOf("if (!behov.klar) return { nej: 'behover', behov };");
   assert.ok(grind > 0, 'hjärtslaget har ingen grind');
-  for (const efter of ['slarNu = true', 'sakerstallNyheter()', 'arbeta([]', 'Agent.slag(u'])
+  for (const efter of ['slarNu = true', 'sakerstallNyheter()', 'efterVarvet(', 'Agent.slag(u'])
     assert.ok(slag.indexOf(efter) > grind, `${efter} före grinden`);
+  // Undersökningen går genom efterarbetet (punkt 10), och efterarbetet
+  // startas bara av varvet.
+  assert.equal((srv.match(/=> efterVarvet\(\{/g) || []).length, 1, 'efterarbetet startas utanför varvet');
+  assert.match(kropp('async function efterVarvet'), /await arbeta\(\[\], new Date\(\)\)/);
   // Vägarna som skapar eller kör något utan hjärtslaget.
   const vag = v => srv.slice(srv.indexOf(v), srv.indexOf(v) + 1400);
   for (const v of ["if (vag === '/api/uppdrag') {", "if (vag === '/api/uppdrag/bakgrund')", "if (vag === '/api/agent/forsta')", 'const mForslag = '])
@@ -99,11 +104,12 @@ test('varje körväg går genom grinden i koden', () => {
 
 /// En server i en egen katalog och på en egen port. Den rör aldrig din.
 async function server() {
+  const modell = await fejkmodell();
   const data = await mkdtemp(join(tmpdir(), 'maximus-behov-'));
-  const port = 3400 + Math.floor(Math.random() * 400);
+  const port = await ledigPort();
   const nyckel = randomBytes(32).toString('hex');
   const p = spawn(process.execPath, ['server.mjs', '--tyst'], { cwd: new URL('..', import.meta.url).pathname,
-    env: { ...process.env, MAXIMUS_PROV: '1', MAXIMUS_PORT: String(port), MAXIMUS_DATA: data, MAXIMUS_NYCKEL: nyckel }, stdio: 'ignore' });
+    env: { ...process.env, MAXIMUS_PROV: '1', MAXIMUS_PORT: String(port), MAXIMUS_DATA: data, MAXIMUS_NYCKEL: nyckel, MAXIMUS_MODELL: modell.url }, stdio: 'ignore' });
   const bas = `http://127.0.0.1:${port}`;
   const h = { 'x-maximus-nyckel': nyckel, 'x-maximus-local': '1', 'content-type': 'application/json' };
   const api = async (vag, kropp) => {
@@ -113,7 +119,7 @@ async function server() {
   for (let i = 0; i < 80; i++) { try { await fetch(`${bas}/api/uppstart`, { headers: h }); break; } catch { await new Promise(r => setTimeout(r, 250)); } }
   const v = await api('/api/villkor');
   await api('/api/villkor', { godkann: true, version: v.version });
-  const stang = async () => { p.kill('SIGTERM'); await new Promise(r => p.once('exit', r)); await rm(data, { recursive: true, force: true }); };
+  const stang = async () => { await avsluta(p); await modell.stang(); await rm(data, { recursive: true, force: true }); };
   return { api, stang };
 }
 

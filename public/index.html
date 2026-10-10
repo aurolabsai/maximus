@@ -340,13 +340,13 @@
   <div class="har">
     <div class="har-rad"><span data-i18n="agent.readMail">Läsa din e-post<i class="under-rad" id="ag-post-om">Av.</i></span>
       <label class="vaxel"><input type="checkbox" id="ag-post-pa"><span></span></label></div>
-    <div class="har-rad" id="ag-post-val" hidden><span data-i18n="agent.whichAccount">Vilket konto<i class="under-rad" data-i18n="agent.whichAccountHelp">Ett konto och en brevlåda. Agenten ser inget annat.</i></span>
-      <div class="rad-par">
-        <select id="ag-post-konto"></select>
-        <input type="text" id="ag-post-lada" value="INBOX" spellcheck="false" autocomplete="off">
-      </div></div>
+    <!-- Flera konton och kalendrar, var och en med en etikett (2026-10-10). -->
+    <div class="har-rad" id="ag-post-val" hidden><span data-i18n="agent.whichAccounts">Vilka konton<i class="under-rad" id="ag-post-lista"></i></span>
+      <button type="button" class="tyst liten" id="ag-post-valj" data-i18n="agent.chooseAccounts">Välj konton</button></div>
     <div class="har-rad"><span data-i18n="agent.readCalendar">Läsa din kalender<i class="under-rad" id="ag-kal-om">Av.</i></span>
       <label class="vaxel"><input type="checkbox" id="ag-kal-pa"><span></span></label></div>
+    <div class="har-rad" id="ag-kal-val" hidden><span data-i18n="agent.whichCalendars">Vilka kalendrar<i class="under-rad" id="ag-kal-lista"></i></span>
+      <button type="button" class="tyst liten" id="ag-kal-valj" data-i18n="agent.chooseCalendars">Välj kalendrar</button></div>
     <div class="har-rad"><span data-i18n="agent.readNotes">Läsa dina anteckningar<i class="under-rad" id="ag-ant-om">Av.</i></span>
       <label class="vaxel"><input type="checkbox" id="ag-ant-pa"><span></span></label></div>
     <div class="har-rad" id="ag-ant-val" hidden><span data-i18n="agent.whichFolder">Vilken mapp<i class="under-rad" data-i18n="agent.whichFolderHelp">En mapp, inte alla dina anteckningar.</i></span>
@@ -482,6 +482,14 @@
     <summary><span data-i18n="dolj.showExact">Visa exakt vad som döljs</span><b data-i18n="dolj.showExactHint">för den som vill välja själv</b></summary>
     <div class="har-inre"><div class="sorter" id="inst-sorter"></div></div>
   </details>
+  <div class="har" id="namnmodell-ruta">
+    <div class="har-rad"><span data-i18n="dolj.nameModel">Svensk/flerspråkig namnmodell<i class="under-rad" id="inst-namnmodell-om">—</i></span>
+      <label class="vaxel"><input type="checkbox" id="inst-namnmodell"><span></span></label></div>
+    <p class="under" data-i18n="dolj.nameModelHelp">Efter reglerna läser en liten modell på datorn det som saknar format: ovanliga namn, adresser, och i Strikt även orter och arbetsplatser. Den lägger bara till platshållare. Av betyder bara reglerna.</p>
+    <div class="vag-prov">
+      <button type="button" class="tyst liten" id="inst-namnmodell-hamta" data-i18n="dolj.nameModelDownload">Hämta namnmodellen</button>
+    </div>
+  </div>
   <div class="har">
     <div class="har-rad hel"><span data-i18n="dolj.rules">Regler för maskeringen<i class="under-rad" id="inst-regler-om">—</i></span>
       <div id="inst-regler"></div></div>
@@ -489,6 +497,7 @@
   <label data-i18n="dolj.takeAwayAs">Text du tar med dig visas som
     <div class="lagen bred" id="inst-beh" role="radiogroup" aria-label="Förvald behandling" data-i18n-attr="aria-label:dolj.defaultTreatmentAria"></div>
   </label>
+  <p class="fotnotis" data-i18n="dolj.takeAwayCloudOnly">Förvalet gäller när en molnmodell svarar. Svarar den lokala modellen lämnar frågan inte datorn och valet visas inte; be om maskering eller anonymisering i samtalet i stället. Sökfrågor maskeras alltid.</p>
   <p class="fotnotis" id="inst-lage-om"></p>
 </section>
 <section class="del" data-del="webben">
@@ -768,8 +777,16 @@
             <!-- Destinationen är borta: ingenting lämnar datorn. Kvar är
                  vad texten blir, och om webben får slås upp.
                  Se lib/behandling.mjs för beslutet. -->
-            <p class="meny-rubrik" data-i18n="komp.menuTreatment">Vad du får att ta med dig</p>
+            <p class="meny-rubrik" id="meny-beh-rubrik" data-i18n="komp.menuTreatment">Vad du får att ta med dig</p>
             <div class="meny-grupp" id="meny-beh" role="radiogroup" aria-label="Behandling" data-i18n-attr="aria-label:komp.treatmentAria"></div>
+            <!-- Lokalt (Auro 2026-10-10): inget val, för ingenting går ut. En
+                 statusrad i stället, och hur man ber om en mask i samtalet.
+                 Valet ovan syns bara när en molnmodell svarar. -->
+            <div class="meny-lokalt" id="meny-lokalt" hidden>
+              <p class="meny-rubrik" data-i18n="komp.menuLocal">Modellen</p>
+              <p class="meny-status" id="meny-lokalt-text">Lokalt · inget lämnar datorn</p>
+              <p class="meny-tips" data-i18n="komp.menuLocalTip">Maskering och anonymisering behövs bara när en molnmodell svarar. Vill du ha en text maskerad skriver du ”maskera: …” eller ”anonymisera bilagan” i samtalet.</p>
+            </div>
             <!-- Tredje frågan: får MAXIMUS slå upp något?
                  Märket på knappen visade läget men menyn lät en inte ändra
                  det — inställningen låg i inställningarna, alltså långt från
@@ -931,6 +948,7 @@
   </div>
   <p class="svar-varning" id="svar-varning" hidden data-i18n="svar.varning">Brevet innehåller text som försöker styra Maximus. Läs förslaget noga.</p>
   <dl class="svar-falt">
+    <dt data-i18n="svar.franKonto">Från</dt><dd id="svar-fran">—</dd>
     <dt data-i18n="svar.till">Till</dt><dd id="svar-till">—</dd>
     <dt data-i18n="svar.amne">Ämne</dt><dd id="svar-amne">—</dd>
   </dl>

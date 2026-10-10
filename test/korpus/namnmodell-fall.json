@@ -1,0 +1,503 @@
+[
+ {
+  "id": "u0",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Jag träffade Zlatan Nyamwasa på mötet i går.",
+  "kansliga": [
+   "Zlatan",
+   "Nyamwasa"
+  ]
+ },
+ {
+  "id": "u1",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Handläggaren Jovana Petrović har ärendet nu.",
+  "kansliga": [
+   "Jovana",
+   "Petrović"
+  ]
+ },
+ {
+  "id": "u2",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Kunden Nguyen Thi Lan klagade på leveransen.",
+  "kansliga": [
+   "Nguyen",
+   "Lan"
+  ]
+ },
+ {
+  "id": "u3",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Tuva Rydberg-Okonkwo skickar underlaget på fredag.",
+  "kansliga": [
+   "Tuva",
+   "Rydberg-Okonkwo"
+  ]
+ },
+ {
+  "id": "u4",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Enligt Mira Kallio-Svartholm är budgeten slut.",
+  "kansliga": [
+   "Mira",
+   "Kallio-Svartholm"
+  ]
+ },
+ {
+  "id": "u5",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Vi väntar på svar från Aino Pietilä.",
+  "kansliga": [
+   "Aino",
+   "Pietilä"
+  ]
+ },
+ {
+  "id": "u6",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Rapporten skrevs av Dagny Wrangsjö.",
+  "kansliga": [
+   "Dagny",
+   "Wrangsjö"
+  ]
+ },
+ {
+  "id": "u7",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Fråga Bashir Qaderi om nycklarna.",
+  "kansliga": [
+   "Bashir",
+   "Qaderi"
+  ]
+ },
+ {
+  "id": "u8",
+  "kategori": "namn-ovanligt",
+  "sprak": "sv",
+  "text": "Signe Tjärnberg och Holger Fjällman leder projektet.",
+  "kansliga": [
+   "Signe",
+   "Tjärnberg",
+   "Holger",
+   "Fjällman"
+  ]
+ },
+ {
+  "id": "u9",
+  "kategori": "namn-ovanligt",
+  "sprak": "en",
+  "text": "My colleague Priya Raghunathan will join the call.",
+  "kansliga": [
+   "Priya",
+   "Raghunathan"
+  ]
+ },
+ {
+  "id": "u10",
+  "kategori": "namn-ovanligt",
+  "sprak": "en",
+  "text": "Please forward this to Thandiwe Mokoena.",
+  "kansliga": [
+   "Thandiwe",
+   "Mokoena"
+  ]
+ },
+ {
+  "id": "u11",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Rose Berg ringde om hyran.",
+  "kansliga": [
+   "Rose",
+   "Berg"
+  ]
+ },
+ {
+  "id": "u12",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Sten Strand är sjukskriven hela veckan.",
+  "kansliga": [
+   "Sten",
+   "Strand"
+  ]
+ },
+ {
+  "id": "u13",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Mötet med Ylva Björk flyttas till torsdag.",
+  "kansliga": [
+   "Ylva",
+   "Björk"
+  ]
+ },
+ {
+  "id": "u14",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Linnea Sjö har sagt upp sig.",
+  "kansliga": [
+   "Linnea",
+   "Sjö"
+  ]
+ },
+ {
+  "id": "u15",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Skicka avtalet till Viktor Lund.",
+  "kansliga": [
+   "Viktor",
+   "Lund"
+  ]
+ },
+ {
+  "id": "u16",
+  "kategori": "namn-ord",
+  "sprak": "sv",
+  "text": "Bo Ek är ny i styrelsen.",
+  "kansliga": [
+   "Bo",
+   "Ek"
+  ]
+ },
+ {
+  "id": "u17",
+  "kategori": "namn-ensamt",
+  "sprak": "sv",
+  "text": "Lindgrens dotter är inlagd på sjukhuset.",
+  "kansliga": [
+   "Lindgrens"
+  ]
+ },
+ {
+  "id": "u18",
+  "kategori": "namn-ensamt",
+  "sprak": "sv",
+  "text": "Jag har pratat med Pettersson om saken.",
+  "kansliga": [
+   "Pettersson"
+  ]
+ },
+ {
+  "id": "u19",
+  "kategori": "namn-ensamt",
+  "sprak": "sv",
+  "text": "Enligt Wikström kommer pengarna i maj.",
+  "kansliga": [
+   "Wikström"
+  ]
+ },
+ {
+  "id": "u20",
+  "kategori": "namn-ensamt",
+  "sprak": "sv",
+  "text": "Kerstins mamma ringde igen.",
+  "kansliga": [
+   "Kerstins"
+  ]
+ },
+ {
+  "id": "u21",
+  "kategori": "namn-ensamt",
+  "sprak": "sv",
+  "text": "Hälsa Majken att vi saknar henne.",
+  "kansliga": [
+   "Majken"
+  ]
+ },
+ {
+  "id": "u22",
+  "kategori": "namn-gemener",
+  "sprak": "sv",
+  "text": "pratade med jonas lindgren om lönen",
+  "kansliga": [
+   "jonas",
+   "lindgren"
+  ]
+ },
+ {
+  "id": "u23",
+  "kategori": "namn-gemener",
+  "sprak": "sv",
+  "text": "säg till zeynep att mötet är inställt",
+  "kansliga": [
+   "zeynep"
+  ]
+ },
+ {
+  "id": "u24",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Hon bor på Kvarngränd 4 i Mora.",
+  "kansliga": [
+   "Kvarngränd 4",
+   "Mora"
+  ]
+ },
+ {
+  "id": "u25",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Leveransadress: Sveavägen 44, 111 34 Stockholm.",
+  "kansliga": [
+   "Sveavägen 44",
+   "111 34"
+  ]
+ },
+ {
+  "id": "u26",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Kontoret ligger på Stora Torget 2.",
+  "kansliga": [
+   "Torget 2"
+  ]
+ },
+ {
+  "id": "u27",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Han har flyttat till Lilla Nygatan 7.",
+  "kansliga": [
+   "Nygatan 7"
+  ]
+ },
+ {
+  "id": "u28",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Skicka pappren till Box 123, 451 81 Uddevalla.",
+  "kansliga": [
+   "Box 123",
+   "451 81"
+  ]
+ },
+ {
+  "id": "u29",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Familjen bor på Björkstigen 12B utanför Kalix.",
+  "kansliga": [
+   "Björkstigen 12B",
+   "Kalix"
+  ]
+ },
+ {
+  "id": "u30",
+  "kategori": "adress",
+  "sprak": "sv",
+  "text": "Besöksadress Industrivägen 9, Ljungby.",
+  "kansliga": [
+   "Industrivägen 9",
+   "Ljungby"
+  ]
+ },
+ {
+  "id": "u31",
+  "kategori": "adress",
+  "sprak": "en",
+  "text": "She lives at 14 Elm Road, Croydon.",
+  "kansliga": [
+   "Elm Road",
+   "Croydon"
+  ]
+ },
+ {
+  "id": "u32",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Hon jobbar som undersköterska på Sahlgrenska.",
+  "kansliga": [
+   "Sahlgrenska"
+  ]
+ },
+ {
+  "id": "u33",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Han är anställd på Volvo Cars i Torslanda.",
+  "kansliga": [
+   "Volvo",
+   "Torslanda"
+  ]
+ },
+ {
+  "id": "u34",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Min bror jobbar på Bageriet Fröken Brun i Skövde.",
+  "kansliga": [
+   "Fröken Brun",
+   "Skövde"
+  ]
+ },
+ {
+  "id": "u35",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Hon har varit lärare på Kattegattgymnasiet i tio år.",
+  "kansliga": [
+   "Kattegattgymnasiet"
+  ]
+ },
+ {
+  "id": "u36",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Han sades upp från Ekströms Rör & Värme AB.",
+  "kansliga": [
+   "Ekströms"
+  ]
+ },
+ {
+  "id": "u37",
+  "kategori": "arbetsplats",
+  "sprak": "sv",
+  "text": "Pappan arbetar på Länsförsäkringar Bergslagen.",
+  "kansliga": [
+   "Länsförsäkringar"
+  ]
+ },
+ {
+  "id": "u38",
+  "kategori": "arbetsplats",
+  "sprak": "en",
+  "text": "He used to work at Northvolt in Skellefteå.",
+  "kansliga": [
+   "Northvolt",
+   "Skellefteå"
+  ]
+ },
+ {
+  "id": "u39",
+  "kategori": "ort",
+  "sprak": "sv",
+  "text": "Hon flyttade till Hjo efter skilsmässan.",
+  "kansliga": [
+   "Hjo"
+  ]
+ },
+ {
+  "id": "u40",
+  "kategori": "ort",
+  "sprak": "sv",
+  "text": "Barnen går i skolan i Vilhelmina.",
+  "kansliga": [
+   "Vilhelmina"
+  ]
+ },
+ {
+  "id": "u41",
+  "kategori": "ort",
+  "sprak": "sv",
+  "text": "Han är uppvuxen i Ånge och bor nu i Sveg.",
+  "kansliga": [
+   "Ånge",
+   "Sveg"
+  ]
+ },
+ {
+  "id": "u42",
+  "kategori": "ort",
+  "sprak": "sv",
+  "text": "Patienten kommer från Överkalix.",
+  "kansliga": [
+   "Överkalix"
+  ]
+ },
+ {
+  "id": "u43",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Björk är ett vanligt träd i Norden.",
+  "kansliga": []
+ },
+ {
+  "id": "u44",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Rosa bilar säljer bäst i juni.",
+  "kansliga": []
+ },
+ {
+  "id": "u45",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Beställ sten och sand till trädgården.",
+  "kansliga": []
+ },
+ {
+  "id": "u46",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Ring Försäkringskassan om ersättningen.",
+  "kansliga": []
+ },
+ {
+  "id": "u47",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Vi använder Word och Outlook på jobbet.",
+  "kansliga": []
+ },
+ {
+  "id": "u48",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Läs kapitel 3 i boken till måndag.",
+  "kansliga": []
+ },
+ {
+  "id": "u49",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Ordet lunch kommer från engelskan.",
+  "kansliga": []
+ },
+ {
+  "id": "u50",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Sommaren i Sverige är kort men ljus.",
+  "kansliga": []
+ },
+ {
+  "id": "u51",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Fyll i blanketten och skicka den till kansliet.",
+  "kansliga": []
+ },
+ {
+  "id": "u52",
+  "kategori": "ofarlig",
+  "sprak": "sv",
+  "text": "Ek, bok och lind växer i parken.",
+  "kansliga": []
+ },
+ {
+  "id": "u53",
+  "kategori": "ofarlig",
+  "sprak": "en",
+  "text": "The Board approved the Budget for Q3.",
+  "kansliga": []
+ },
+ {
+  "id": "u54",
+  "kategori": "ofarlig",
+  "sprak": "en",
+  "text": "Use Excel to sort the list by date.",
+  "kansliga": []
+ }
+]

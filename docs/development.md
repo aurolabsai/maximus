@@ -210,7 +210,7 @@ Developer ID and notarises, given the `APPLE_*` environment variables, and
 
 Two things about the update check:
 - Before offering an update, the running app also checks a version manifest at
-  `https://aurolabs.ai/maximus/uppdatering.json`. You can override that URL with
+  `https://github.com/aurolabsai/maximus/releases/latest/download/latest.json` (from 1.0.2; 1.0.0–1.0.1 asked `aurolabs.ai/maximus/uppdatering.json`). You can override that URL with
   `MAXIMUS_UPPDATERINGAR`.
 - The check is opt-in and written to the ledger. See
   [architecture.md](architecture.md#6-updates).

@@ -136,7 +136,7 @@ if (!Object.keys(platforms).length) {
 const noter = await readFile(join(ROT, 'data', 'slapp.md'), 'utf8').catch(() => '');
 const manifest = {
   version,
-  notes: noter.trim().slice(0, 2000) || `MAXIMUS ${version}`,
+  notes: noter.trim().slice(0, 8000) || `MAXIMUS ${version}`,
   pub_date: new Date().toISOString(),
   platforms,
 };

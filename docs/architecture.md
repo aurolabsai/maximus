@@ -497,7 +497,7 @@ setting's own level, not the session's treatment.
 Off until you say yes (`installningar.uppdateringar === true`). Two steps:
 
 1. **Check.** The server fetches the manifest at
-   `https://aurolabs.ai/maximus/uppdatering.json` (`lib/uppdatering.mjs`; the
+   `https://github.com/aurolabsai/maximus/releases/latest/download/latest.json` (from 1.0.2; 1.0.0–1.0.1 asked `aurolabs.ai/maximus/uppdatering.json`) (`lib/uppdatering.mjs`; the
    URL can be overridden with `MAXIMUS_UPPDATERINGAR`).
    - The request carries only the version and platform: no id.
    - It is written to the ledger, including failures.

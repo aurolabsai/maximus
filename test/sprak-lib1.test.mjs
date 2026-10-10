@@ -23,7 +23,7 @@ test('/help och modellens rader på engelska, kommandona på engelska', () => {
     assert.match(t, /^### Commands\n\n\| You type \| What happens \| What it costs \|/);
     assert.match(t, /`\/mail`/);
     assert.match(forModellen(), /^- \/help: Everything Maximus can do/);
-    assert.equal(FUNKTIONER.length, KOMMANDON.length + 14);
+    assert.equal(FUNKTIONER.length, KOMMANDON.length + 15);
     assert.ok(!svenskt.test(FUNKTIONER.map(f => f.gor + f.kostar).join(' ')));
   });
   pa('sv', () => assert.match(tabell(), /^### Kommandon\n\n\| Du skriver \|/));

@@ -20,14 +20,16 @@ test('förberedelsen skriver om när Anonymiserat är valt', () => {
   const i = rent.indexOf("if (vag === '/api/forbered')");
   assert.ok(i > 0);
   const block = rent.slice(i, i + 2600);
-  assert.match(block, /valt\.behandling === 'anonym'/, 'valet styr ingenting');
+  // Valet gäller bara när en molnmodell svarar (Auro 2026-10-10), därför
+  // läses det genom behandlingNu() — men det ska fortfarande styra.
+  assert.match(block, /behandlingNu\(sess\) === 'anonym'/, 'valet styr ingenting');
   assert.match(block, /await skrivOm\(klar\.maskerad/, 'ingen omskrivning sker');
 });
 
 test('omskrivningen går genom serverns maskering igen', () => {
   // Modellen skrev om texten, och en omskrivning kan råka skriva fram ett
   // namn som maskeringen just tagit bort.
-  const i = rent.indexOf("valt.behandling === 'anonym'");
+  const i = rent.indexOf("behandlingNu(sess) === 'anonym'");
   const block = rent.slice(i, i + 1400);
   assert.match(block, /maskeraHart\(vagare/, 'den omskrivna texten maskeras inte om');
   assert.ok(block.indexOf('await skrivOm(') < block.indexOf('maskeraHart(vagare'),
@@ -35,7 +37,7 @@ test('omskrivningen går genom serverns maskering igen', () => {
 });
 
 test('en utebliven anonymisering sägs ut, den tigs inte ihjäl', () => {
-  const i = rent.indexOf("valt.behandling === 'anonym'");
+  const i = rent.indexOf("behandlingNu(sess) === 'anonym'");
   const block = rent.slice(i, i + 1600);
   assert.match(block, /anonymiserad = false/, 'utfallet ska gå att se');
   assert.match(block, /anonymSkal/, 'skälet ska följa med');
@@ -53,7 +55,7 @@ test('anonymiseringen körs på valet, inte på en destination', () => {
   // Destinationen är borta (2026-09-29). Anonymiserat betyder nu att MAXIMUS
   // ger dig en vagare version att ta med dig — den lokala modellen ser
   // originalet ändå, för den kör här.
-  const i = rent.indexOf("valt.behandling === 'anonym'");
+  const i = rent.indexOf("behandlingNu(sess) === 'anonym'");
   assert.ok(i > 0, 'valet styr ingenting');
   const block = rent.slice(i, i + 160);
   assert.ok(!/destination/.test(block), 'destinationen finns inte längre');

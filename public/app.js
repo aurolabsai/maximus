@@ -37,6 +37,11 @@ const procent = andel => new Intl.NumberFormat(lokal(), { style: 'percent', maxi
 const decimal = (x, siffror = 1) => new Intl.NumberFormat(lokal(), { minimumFractionDigits: siffror, maximumFractionDigits: siffror }).format(x);
 /// Sfären (jobb/privat) är en kod i datat och visas på ditt språk.
 const sfarNamn = s => (s === 'jobb' ? t('uppdrag.sfar.jobb') : s === 'privat' ? t('uppdrag.sfar.privat') : s || '—');
+/// En källas etikett (2026-10-10): Privat och Jobb på ditt språk, en egen
+/// etikett som den skrevs. Samma koder som lib/konton.mjs.
+const etikettNamn = e => (e === 'privat' ? t('etikett.privat') : e === 'jobb' ? t('etikett.jobb') : e || t('etikett.ingen'));
+/// Det du skrev som etikett ("Work", "privat", "styrelsen") som kod.
+const etikettKod = s => { const x = String(s || '').trim(); return !x ? null : /^(privat|private|personal)$/i.test(x) ? 'privat' : /^(jobb|work|arbete|job)$/i.test(x) ? 'jobb' : x.slice(0, 40); };
 const ochLista = (xs, typ = 'conjunction') => new Intl.ListFormat(lokal(), { type: typ }).format(xs.map(String));
 
 const stat = {
@@ -76,8 +81,9 @@ const beh = () => behandlingar().find(b => b.id === stat.behandling) || behandli
 const lokaltNu = () => true;
 
 /// Får den lokala modellen hjälpa till att hitta det reglerna missar?
-/// Alltid när något ska maskeras — se lib/behandling.mjs.
-const tolkaNu = () => stat.behandling !== 'original';
+/// Alltid när något ska maskeras — se lib/behandling.mjs. Med den lokala
+/// modellen gäller valet inte, och masken du ber om är alltid noggrann.
+const tolkaNu = () => !behGaller() || stat.behandling !== 'original';
 
 /// Raden under skrivfältet. Den måste vara sann.
 ///
@@ -87,6 +93,18 @@ const tolkaNu = () => stat.behandling !== 'original';
 // kastar den (TDZ). Före uppstarten vet vi inget om molnet — då är det av.
 const molnPa = () => { try { return Boolean(upp.moln?.pa); } catch { return false; } };
 const molnRad = () => t('valOm.molnRad', { namn: upp.moln.namn || t('moln.standardnamn') });
+
+/// Gäller behandlingsvalet? Bara när en molnmodell svarar.
+///
+/// Auro 2026-10-10: "Om vi nyttjar utgående modeller så är maskering+
+/// anonymisering relevant i inputdiv-inställningen. Men jobbar vi mot lokal
+/// modell = onödigt, det ska alltid vara av." Med den lokala modellen lämnar
+/// frågan inte datorn, och då visas inget val — knappen säger Lokalt. Valet
+/// står kvar på samtalet och syns igen så fort molnet slås på, också mitt i
+/// ett samtal. Sökfrågorna maskeras som förut: det gör servern, oavsett valet.
+const behGaller = () => molnPa();
+/// Behandlingen som gäller, eller null när den inte gör det.
+const behNu = () => (behGaller() ? stat.behandling : null);
 const valOm = () => {
   // Ett samtal som ska glömmas säger det, där man skriver. Annars är det en
   // inställning man glömt att man gjort.
@@ -94,13 +112,11 @@ const valOm = () => {
   // Molnmodellen på: då lämnar frågan datorn, maskerad. "Ingenting lämnar
   // datorn" stod kvar här efter att molnet kom (inventeringen 2026-10-09).
   if (molnPa()) return molnRad();
+  // Lokalt gäller behandlingen inte (Auro 2026-10-10): raden säger bara vart
+  // texten går. Original och Maskerat betydde samma sak här ändå — modellen
+  // läser originalet.
   const webb = installningar.webb && installningar.webb !== 'av';
-  if (!webb) {
-    return stat.behandling === 'original'
-      ? t('valOm.originalLokalt')
-      : t('valOm.lokalt');
-  }
-  return t('valOm.webb');
+  return webb ? t('valOm.webb') : t('valOm.lokalt');
 };
 
 /// Allt går nu. Det fanns en kombination som inte gick — Original utåt — och
@@ -239,7 +255,25 @@ async function laddaLista() {
   const sRubrik = el('p', 'listrubrik', { textContent: stat.lada === 'arkiv' ? t('lista.arkiv') : t('lista.samtal') });
   n.append(pRubrik, projektlada, sRubrik, sessionslada);
 
-  const i_lada = stat.sessioner.filter(s => !!s.arkiverad === (stat.lada === 'arkiv') && !s.agentsamtal && !s.helig && (stat.lada === 'arkiv' || !s.avAgenten || s.projekt));
+  const alla_i_lada = stat.sessioner.filter(s => !!s.arkiverad === (stat.lada === 'arkiv') && !s.agentsamtal && !s.helig && (stat.lada === 'arkiv' || !s.avAgenten || s.projekt));
+  // Filtret på källans etikett (2026-10-10): ett samtal ur jobbkontot bär
+  // "jobb", ett ur familjens kalender "familjen". Bara när det finns något
+  // att skilja på; ett filter som inte längre har några samtal släpps.
+  const etiketterna = [...new Set(alla_i_lada.flatMap(s => s.etiketter || []))];
+  if (stat.etikett && !etiketterna.includes(stat.etikett)) stat.etikett = null;
+  if (etiketterna.length) {
+    const filter = el('div', 'etikettfilter');
+    filter.setAttribute('role', 'group');
+    filter.setAttribute('aria-label', t('lista.filterEtikett'));
+    for (const e of [null, ...etiketterna]) {
+      const b = el('button', `etikettknapp${stat.etikett === e ? ' vald' : ''}`, { type: 'button', textContent: e ? etikettNamn(e) : t('lista.allaEtiketter') });
+      b.setAttribute('aria-pressed', String(stat.etikett === e));
+      b.onclick = () => { stat.etikett = e; laddaLista(); };
+      filter.append(b);
+    }
+    n.insertBefore(filter, pRubrik);
+  }
+  const i_lada = stat.etikett ? alla_i_lada.filter(s => (s.etiketter || []).includes(stat.etikett)) : alla_i_lada;
   if (!i_lada.length) {
     projektlada.remove(); pRubrik.remove();
     sessionslada.append(el('p', 'tom-lista', { textContent: stat.lada === 'arkiv' ? t('lista.arkivTomt') : t('lista.ingaSessioner') }));
@@ -1291,7 +1325,7 @@ const HJALP_KARTA = {
   kommandon: {
     '/spela': 'mote', '/presentation': 'mallar', '/dokument': 'mallar', '/djupdykning': 'djupsokning', '/rundtur': 'kommandon',
     '/help': 'kommandon', '/post': 'epost-kalender', '/kalender': 'epost-kalender', '/bevakning': 'frister', '/uppdrag': 'uppdragsvyn',
-    '/rensa': 'arkiv', '/fynd': 'agent-gjort', '/agent': 'agent-vad', '/installningar': 'installningar',
+    '/rensa': 'arkiv', '/fynd': 'agent-gjort', '/agent': 'agent-vad', '/installningar': 'installningar', '/du': 'du-linkedin',
   },
   flikar: { du: 'du-linkedin', agent: 'agent-vad', skydd: 'maskering', modell: 'molnet', kopplingar: 'kopplingar', data: 'arkiv', om: 'kostar' },
 };
@@ -1875,6 +1909,8 @@ function nySession() {
   // Uppdrag som vald efter Esc (test/uppdragen.mjs, 2026-10-06).
   agentFilter = null;
   manus.uppdragVy = null;
+  manus.duVy = false;
+  manus.knack = null;
   manus.hub = null;
   for (const r of document.querySelectorAll('.uppdragsrad.vald, .uppdragsnav.vald')) r.classList.remove('vald');
   if (manus.pagar !== true) { manus.rader = []; manus.session = null; }
@@ -3282,6 +3318,9 @@ async function forslagFor(konto, brevId) {
   return (d.forslag || []).find(f => f.konto === konto && f.brevId === brevId) || null;
 }
 
+/// Avsändarkontot som rutan visar det: kontot, och dess etikett när det har en.
+const franText = x => (x?.konto ? `${x.konto}${x.etikett ? ` (${etikettNamn(x.etikett)})` : ''}` : '—');
+
 /// Öppnar rutan. `f`: ett förslag ur /api/svar. `u`: ett samtals ursprung
 /// (ett öppnat brev) — då hämtas förslaget, eller skrivs ett.
 async function oppnaSvarsruta({ f = null, u = null, text = null, session = null } = {}) {
@@ -3292,6 +3331,8 @@ async function oppnaSvarsruta({ f = null, u = null, text = null, session = null 
   if (text != null) svar.f = { ...svar.f, text };
   const x = svar.f;
   $('#svar-rubrik').textContent = f && text == null ? t('svar.rubrikForslag') : t('svar.rubrik');
+  // Kontot svaret går från: det brevet kom till, med etiketten (2026-10-10).
+  $('#svar-fran').textContent = franText(x);
   $('#svar-till').textContent = tillText(x);
   $('#svar-amne').textContent = x.amne || '—';
   $('#svar-varning').hidden = !x.varning;
@@ -3318,6 +3359,7 @@ async function oppnaSvarsruta({ f = null, u = null, text = null, session = null 
     if (r.error) return svarLage(t('svar.forslagGickInte', { fel: r.error }));
     svar.f = { ...r.forslag, text: falt.value.trim() ? falt.value : r.forslag.text };
     if (!falt.value.trim()) falt.value = r.forslag.text;
+    $('#svar-fran').textContent = franText(svar.f);
     $('#svar-till').textContent = tillText(svar.f);
     $('#svar-amne').textContent = svar.f.amne || '—';
     $('#svar-skicka').disabled = $('#svar-mail').disabled = false;
@@ -3523,6 +3565,159 @@ function ritaSvarsforslagKort(f) {
   return n;
 }
 
+// ── Kollegan: förslag med skäl (2026-10-10) ───────────────────────────────
+//
+// Auro 2026-10-10: "faktiskt föreslå handlingar, vem man kan höra av sig
+// till och varför." Varje förslag säger varför och pekar på korten ovanför
+// sig med deras nummer. Utkastet går att ändra, och ingenting skickas
+// härifrån: ett svar öppnas i svarsrutan där du trycker Skicka, ett möte
+// förbereds för Kalender, och ett "hör av dig" kopieras. Ett nej sparas med
+// sitt skäl och styr nästa förslag (lib/kollega.mjs).
+const KOLLEGASORT = () => ({ svara: t('kollega.sort.svara'), boka: t('kollega.sort.boka'), hora_av: t('kollega.sort.horaAv'), folj_upp: t('kollega.sort.foljUpp') });
+function ritaKollega(tt) {
+  const d = el('div', 'kollega');
+  for (const f of tt.kollega.forslag) d.append(ritaKollegaForslag(f, tt));
+  return d;
+}
+function ritaKollegaForslag(f, tt) {
+  const n = el('div', `svarskort kollega-forslag kollega-${f.status || 'forslag'}`);
+  n.dataset.kollega = f.id;
+  const topp = el('div', 'svarskort-topp');
+  topp.append(ikon(f.sort === 'boka' ? 'kalender' : f.konto ? 'inkorg' : f.sort === 'hora_av' ? 'samtal' : 'omkor', 15), el('b', null, { textContent: KOLLEGASORT()[f.sort] || f.sort }),
+    el('span', null, { textContent: [f.vem, f.etikett ? etikettNamn(f.etikett) : null, f.konto ? t('kollega.franKonto', { konto: f.konto }) : null].filter(Boolean).join(' · ') }));
+  n.append(topp, el('p', 'svarskort-amne', { textContent: f.titel }));
+  const varfor = el('p', 'kollega-varfor');
+  varfor.append(el('b', null, { textContent: t('kollega.varfor') }), document.createTextNode(` ${f.varfor}`));
+  if (f.nr?.length) varfor.append(el('span', 'kollega-nr', { textContent: ` ${t('kollega.underlagNr', { nr: f.nr.map(x => `[${x}]`).join(' ') })}` }));
+  n.append(varfor);
+  const oppen = (f.status || 'forslag') === 'forslag';
+  if (f.sort === 'boka') {
+    const s = new Date(f.start), e = new Date(f.slut || f.start);
+    const kl = x => x.toLocaleTimeString(lokal(), { hour: '2-digit', minute: '2-digit' });
+    // Öppet står tiden i väljaren nedan; här bara kalendern.
+    const rad = [f.start && !oppen ? `${s.toLocaleDateString(lokal(), { weekday: 'long', day: 'numeric', month: 'long' })}, ${kl(s)}–${kl(e)}` : null,
+      f.kalender?.namn ? t('kollega.iKalendern', { namn: f.kalender.namn }) : null].filter(Boolean).join(' · ');
+    if (rad) n.append(el('p', 'svarskort-text', { textContent: rad }));
+  }
+  // Boka: tiden ur mejlet om den står där, annars väljer du den. Maximus
+  // hittar inte på en tid (2026-10-10).
+  let tid = null;
+  if (oppen && f.sort === 'boka') {
+    tid = el('div', 'kollega-tid');
+    const lang = f.start && f.slut ? Math.round((new Date(f.slut) - new Date(f.start)) / 60e3) : 60;
+    const start = el('input', null, { type: 'datetime-local', value: f.start || '', step: 900, ariaLabel: t('kollega.tidStart') });
+    const langd = el('select', null, { ariaLabel: t('kollega.tidLangd') });
+    for (const m of [15, 30, 45, 60, 90, 120]) langd.append(el('option', null, { value: String(m), textContent: t('kollega.tidMinuter', { n: m }), selected: m === lang }));
+    if (![15, 30, 45, 60, 90, 120].includes(lang)) langd.value = '60';
+    const etikett = el('label');
+    etikett.append(el('span', null, { textContent: t('kollega.tidStart') }), start);
+    tid.append(etikett, langd);
+    if (!f.start) tid.append(el('p', 'kollega-tid-om', { textContent: t('kollega.tidValj') }));
+    tid.varde = () => {
+      if (!start.value) return null;
+      const s = new Date(start.value);
+      if (!Number.isFinite(+s)) return null;
+      const e = new Date(+s + Number(langd.value) * 60e3);
+      const lok = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      return { start: lok(s), slut: lok(e) };
+    };
+    n.append(tid);
+  }
+  const utkast = oppen && f.utkast && f.sort !== 'boka' ? el('textarea', 'kollega-utkast', { value: f.utkast, rows: 4, ariaLabel: t('kollega.utkast') }) : null;
+  if (utkast) n.append(utkast);
+  else if (f.utkast && f.sort !== 'boka') n.append(el('p', 'svarskort-text', { textContent: f.utkast.slice(0, 280) + (f.utkast.length > 280 ? ' …' : '') }));
+  const rad = el('div', 'svarskort-val kollega-val');
+  const uppdatera = ny => {
+    // Turen i minnet följer med, så att samtalet ritas om med läget.
+    const i = tt.kollega.forslag.findIndex(x => x.id === f.id);
+    if (i >= 0) tt.kollega.forslag[i] = { ...tt.kollega.forslag[i], ...ny };
+    // Kortet som står nu: samtalet kan ha ritats om medan svaret kom.
+    (document.querySelector(`[data-kollega="${CSS.escape(f.id)}"]`) || n).replaceWith(ritaKollegaForslag({ ...f, ...ny }, tt));
+  };
+  if (f.status === 'tagen') rad.append(el('span', 'handling-om', { textContent: f.konto ? t('kollega.tagenSvar') : f.sort === 'boka' ? t('kollega.tagenMote') : t('kollega.tagenKopierad') }));
+  else if (f.status === 'avbojd') rad.append(el('span', 'handling-om', { textContent: { inte_relevant: t('kollega.avbojdInteRelevant'), redan_gjort: t('kollega.avbojdRedanGjort'), fraga_inte: t('kollega.avbojdFragaInte', { om: f.om || f.titel }) }[f.skal] || t('kollega.avbojdInteRelevant') }));
+  else {
+    const ta = el('button', 'primar', { type: 'button',
+      textContent: f.konto ? t('kollega.oppnaSvaret') : f.sort === 'boka' ? t('kollega.forberedMotet') : t('kollega.kopieraUtkastet') });
+    ta.onclick = async () => {
+      const vald = tid ? tid.varde() : null;
+      if (tid && !vald) return kortKvitto(t('kollega.tidValj'));
+      ta.disabled = true;
+      const r = await post('/api/kollega/svar', { id: f.id, svar: 'ta', ...(utkast ? { text: utkast.value } : {}), ...(vald || {}) }).catch(e => ({ error: e.message }));
+      if (r.error) { ta.disabled = false; return kortKvitto(r.error); }
+      if (r.kopiera != null) kopiera(r.kopiera);
+      if (r.svarsforslag) oppnaSvarsruta({ f: r.svarsforslag });
+      uppdatera(r.forslag || { status: 'tagen' });
+    };
+    rad.append(ta);
+    for (const [skal, etikett] of [['inte_relevant', t('kollega.inteRelevant')], ['redan_gjort', t('kollega.redanGjort')], ['fraga_inte', t('kollega.fragaInteOm', { om: f.om || f.titel })]]) {
+      const b = el('button', 'tyst liten', { type: 'button', textContent: etikett });
+      b.onclick = async () => {
+        b.disabled = true;
+        const r = await post('/api/kollega/svar', { id: f.id, svar: 'avboj', skal }).catch(e => ({ error: e.message }));
+        if (r.error) { b.disabled = false; return kortKvitto(r.error); }
+        uppdatera(r.forslag || { status: 'avbojd', skal });
+      };
+      rad.append(b);
+    }
+  }
+  n.append(rad);
+  return n;
+}
+
+/// Underlaget agenten bifogade: ett kort per fynd med titel, källa och
+/// utdrag, och vägen till originalet (Auro 2026-10-10: "När agenten
+/// diskuterar med assistenten måste den bifoga eller hänvisa till exakt den
+/// information det gäller"). Assistenten läser samma kort vid varje
+/// följdfråga; här ser du vad det är.
+function ritaUnderlag(tt) {
+  const sid = stat.aktiv;
+  const d = el('div', 'underlagskort');
+  d.append(el('span', 'uppdragskort-etikett', { textContent: tt.underlag.length === 1 ? t('underlagskort.rubrik1') : t('underlagskort.rubrik', { n: tt.underlag.length }) }));
+  tt.underlag.forEach((k, i) => {
+    const r = el('div', 'underlagskort-rad');
+    const topp = el('div', 'underlagskort-topp');
+    topp.append(el('b', null, { textContent: `${i + 1}. ${k.titel}` }),
+      // Källan med sitt namn på ditt språk, inte koden ("flode", "mapp";
+      // sett i skärmbilderna 2026-10-10, punkt 10).
+      el('span', null, { textContent: [k.fran, k.kalla ? kallnamn(k.kalla) : null, k.tid ? nar(k.tid) : null].filter(Boolean).join(' · ') }));
+    r.append(topp);
+    // En text som försökte styra modellen visas inte här heller; originalet
+    // går att öppna, och då är det du som läser.
+    if (k.pakallande) r.append(el('p', 'muted', { textContent: t('underlagskort.styrde') }));
+    else if (k.utdrag) r.append(el('p', 'underlagskort-utdrag', { textContent: k.utdrag }));
+    const val = el('div', 'underlagskort-val');
+    const hela = el('pre', 'underlagskort-hela');
+    hela.hidden = true;
+    const visa = el('button', 'tyst liten', { type: 'button', textContent: t('underlagskort.visaHela') });
+    visa.onclick = async () => {
+      if (!hela.hidden) { hela.hidden = true; visa.textContent = t('underlagskort.visaHela'); return; }
+      visa.disabled = true;
+      const o = await post('/api/underlag/original', { session: sid, tur: tt.id, nr: i + 1 }).catch(e => ({ error: e.message }));
+      visa.disabled = false;
+      if (o.error) return maximusSager(o.error, { fel: true });
+      hela.textContent = o.text || t('underlagskort.tomt');
+      hela.title = o.original ? o.var : t('underlagskort.baraUtdrag');
+      hela.hidden = false;
+      visa.textContent = t('underlagskort.dolj');
+    };
+    val.append(visa);
+    const sort = k.ref?.sort;
+    if (sort === 'mejl' || sort === 'fil' || sort === 'sida' || (sort === 'flode' && k.ref.url)) {
+      const o = el('button', 'tyst liten', { type: 'button',
+        textContent: sort === 'mejl' ? t('underlagskort.oppnaMail') : sort === 'fil' ? t('underlagskort.oppnaFil') : t('underlagskort.oppnaSida') });
+      o.onclick = async () => {
+        const r2 = await post('/api/underlag/original', { session: sid, tur: tt.id, nr: i + 1, app: true }).catch(e => ({ error: e.message }));
+        if (r2.error) maximusSager(r2.error, { fel: true });
+      };
+      val.append(o);
+    }
+    r.append(val, hela);
+    d.append(r);
+  });
+  return d;
+}
+
 /// Agentens genomgång som kort: uppdraget, din instruktion i en egen ruta,
 /// vad som lästes — och en länk tillbaka till där uppdraget gavs. Förut
 /// stod det som löptext med ett citat, "för sterilt och obegripligt för en
@@ -3709,7 +3904,11 @@ function ritaTur(tt) {
     }
   }
   arbete.append(sum, inre);
-  d.append(arbete);
+  // En rad agenten skrivit utan svar och utan steg (kollegans förslag, ett
+  // svarsförslag, en undersöknings rad): ingen tom "Vad som hände" och inga
+  // knappar för ett svar som inte finns (skärmbilderna, punkt 10).
+  const baraRad = tt.avAgenten && !tt.svar && !tt.fraga && !tt.kvitto?.length && !tt.steg?.length;
+  if (!baraRad) d.append(arbete);
 
   if (tt.status === 'fel') d.append(el('p', 'fel', { textContent: tt.fel || t('fel.nagotGickFelKort') }));
   else if (tt.status === 'igang') d.append(el('div', 'svar', { innerHTML: '<span class="puls"></span>' }));
@@ -3740,6 +3939,8 @@ function ritaTur(tt) {
     // Hänvisningarna i texten blir länkar till källan de pekar på. "[2]" som
     // bara är tecken är en fotnot utan fot.
     if (tt.kallor?.length) knytKallor(d, tt.kallor);
+    // Maskering på begäran (2026-10-10): texten, antalet och kartan.
+    if (tt.maskning) d.append(ritaMaskning(tt));
     // Granskningen av hänvisningarna, om den gjordes.
     if (tt.granskning?.antal) d.append(ritaGranskning(tt.granskning));
     // Frister som stod i lagtexten. Erbjuds, sätts inte igång — vilken dag
@@ -3840,10 +4041,19 @@ function ritaTur(tt) {
       // En modell som ombeds "gör en tabell av det här" skriver en NY
       // tabell, och då är det inte längre svaret man exporterar.
       knapp2('underlag', t('tur.gorFil'), b => filmeny(tt, b)),
-      knapp2('omkor', t('tur.korOm'), () => korOm(tt, tt.fraga)),
+      // Kör om gäller din fråga. Agentens "fråga" är dess egen rad, och
+      // att köra om den skickade agentens ord som om du skrivit dem.
+      ...(tt.avAgenten ? [] : [knapp2('omkor', t('tur.korOm'), () => korOm(tt, tt.fraga))]),
     );
-    d.append(atg);
+    if (!baraRad) d.append(atg);
   }
+  // Underlaget agenten bifogade (2026-10-10): det turen gäller, synligt.
+  // En sammanställning visar inte korten: källrutan under svaret har samma
+  // poster med samma nummer och länk, och nio nyheter blev annars tre
+  // listor med samma rubriker (punkt 10). Assistenten läser korten ändå.
+  if (tt.underlag?.length && !tt.sammanstallning) d.append(ritaUnderlag(tt));
+  // Kollegans förslag (2026-10-10): varför, och numren på korten ovanför.
+  if (tt.kollega?.forslag?.length) d.append(ritaKollega(tt));
   if (tt.uppdragsforslag) d.append(ritaUppdragsforslag(tt));
   for (const p of tt.planen || []) d.append(ritaPlan(tt, p));
   if (tt.handelse) d.append(ritaHandelse(tt));
@@ -3888,6 +4098,9 @@ function ritaHandelse(tt) {
   rad(t('handelse.var'), h.plats);
   rad(t('handelse.deltagare'), h.deltagare.map(x => x.epost).join(', ') + (h.obligatoriskt && h.deltagare.length ? ' · ' + t('handelse.obligatorisk') : ''));
   rad(t('handelse.paminnelser'), ochLista(h.paminnelser.map(p => { const x = new Date(p); return `${dag(x)} ${kl(x)}`; })));
+  // Kalendern med samma etikett som underlaget (2026-10-10). Kalender
+  // frågar var händelsen ska ligga; här står vilken det bör vara.
+  if (h.kalender?.namn) rad(t('handelse.kalendern'), `${h.kalender.namn} · ${etikettNamn(h.kalender.etikett)}`);
   const val = el('div', 'forsta-val');
   const lagg = el('button', h.gjort?.kalender ? 'tyst' : 'primar', { type: 'button',
     textContent: h.gjort?.kalender ? t('handelse.oppnaIgen') : t('handelse.laggIKalendern') });
@@ -4075,7 +4288,11 @@ function ritaUppdragen(mitt) {
       // webben, källor på webben" och takten syntes aldrig).
       el('span', 'uppdragen-om', { textContent: [[...new Set(u.kallor.map(kallnamn))].join(', '), uppdragstakt(u)].filter(Boolean).join(' · ') }));
     // Ett pausat uppdrag säger varför, på raden (2026-10-09).
-    if (u.tillstand === 'pausad' && u.felVarfor)
+    // Saknas ett lov i macOS säger raden vilket och att ett klick rättar det
+    // (Auro 2026-10-10: "varför öppnas inte behörigheterna så jag kan ge dem?").
+    if (u.felBehorighet)
+      vanster.append(el('span', 'uppdragen-om uppdragen-lov', { textContent: t('uppdrag.behorighetRad', { kalla: kallnamn(u.felKalla) }), title: u.felVarfor || '' }));
+    else if (u.tillstand === 'pausad' && u.felVarfor)
       vanster.append(el('span', 'uppdragen-om', { textContent: t('uppdrag.senasteFelet', { fel: u.felVarfor }), title: u.felVarfor }));
     const nasta = u.nasta && u.aterkommande && u.tillstand !== 'pausad' ? new Date(u.nasta).toLocaleString(lokal(), { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
     r.append(vanster,
@@ -4169,7 +4386,7 @@ async function visaUppdrag(id) {
   // finns och hur mycket, inte läsa fyrtio rader varje gång (Auro
   // 2026-10-05: "gör ALLTID till fold-out").
   delar.push(undan.length ? t('uppdrag.vyUndan2', { n: undan.length }) : t('uppdrag.vyUndan'));
-  const valen = (visaUndan) => [{ id: 'kor', text: t('uppdrag.valKorNu') },
+  const valen = (visaUndan) => [...(u.felBehorighet ? [{ id: 'lov', text: t('uppdrag.valGeLov', { kalla: kallnamn(u.felKalla) }) }] : []), { id: 'kor', text: t('uppdrag.valKorNu') },
     ...(visaUndan && undan.length ? [{ id: 'undan', text: t('uppdrag.valVisaUndan', { n: undan.length }) }] : []),
     ...(u.aterkommande ? [{ id: 'takt', text: t('uppdrag.valTakt') }] : []),
     ...(fyndet.some(f => !f.undersokning && !f.obedomd) ? [{ id: 'undersok', text: t('uppdrag.valUndersok') }] : []),
@@ -4196,8 +4413,12 @@ async function visaUppdrag(id) {
     return;
   }
   if (v === 'sfar') {
+    // Egna etiketter på källorna (2026-10-10) blir egna val: "Bara styrelsen".
+    const a = installningar.agent || {};
+    const egna = [...new Set([...epostKontonAv(a.epost), ...kalendrarAv(a.kalender)].map(k => k.etikett).filter(e => e && e !== 'privat' && e !== 'jobb'))];
     const s = await maximusFragar(t('uppdrag.sfarFraga'),
-      [{ id: 'jobb', text: t('uppdrag.sfarVal3') }, { id: 'privat', text: t('uppdrag.sfarVal2') }, { id: 'bada', text: t('uppdrag.sfarVal') }]);
+      [{ id: 'jobb', text: t('uppdrag.sfarVal3') }, { id: 'privat', text: t('uppdrag.sfarVal2') },
+        ...egna.slice(0, 6).map(e => ({ id: e, text: t('uppdrag.sfarValEgen', { etikett: e }) })), { id: 'bada', text: t('uppdrag.sfarVal') }]);
     const r = await post(`/api/uppdrag/${id}/andra`, { sfar: s === 'bada' ? null : s }).catch(e => ({ error: e.message }));
     laddaLista();
     return maximusSager(r.error || (s === 'bada' ? t('uppdrag.sfarKlart2') : t('uppdrag.sfarKlart', { s: sfarNamn(s) })), { fel: Boolean(r.error) });
@@ -4266,6 +4487,16 @@ async function visaUppdrag(id) {
     laddaLista();
     return maximusSager(r.error || t('uppdrag.taktKlart', { takt: hurOfta(ny?.takt) }) + (ny?.takt > Number(tt) ? ' ' + t('uppdrag.snabbareGarInte', { kallor: ochLista(u.kallor.map(kallnamn)) }) : ''), { fel: Boolean(r.error) });
   }
+  // Lovet: rätt ruta i Systeminställningar, sedan igång igen och en körning
+  // direkt, så att du ser att det gick.
+  if (v === 'lov') {
+    await post('/api/oppna-installning', { vad: u.felBehorighet }).catch(() => {});
+    const w = await maximusFragar(t('uppdrag.lovSagTill', { kalla: kallnamn(u.felKalla) }),
+      [{ id: 'prova', text: t('allmant.provaIgen') }, { id: 'avbryt', text: t('allmant.avbryt') }]);
+    if (w !== 'prova') return;
+    if (u.tillstand === 'pausad') await post(`/api/uppdrag/${id}/aterstall`, {});
+    v = 'kor';
+  }
   if (v === 'kor') {
     maximusSager(t('uppdrag.laser'));
     const r = await fetch(`/api/uppdrag/${id}/kor`, { method: 'POST', headers: { 'X-Maximus-Local': '1', 'Content-Type': 'application/json' }, body: '{}' });
@@ -4284,6 +4515,77 @@ async function visaUppdrag(id) {
   await post(`/api/uppdrag/${id}/${v}`, {});
   laddaLista();
   maximusSager({ pausa: t('uppdrag.statusKvitto3', { titel: u.titel }), aterstall: t('uppdrag.statusKvitto2', { titel: u.titel }), bort: t('uppdrag.statusKvitto', { titel: u.titel }) }[v]);
+}
+
+/// Kortet för en text du bett Maximus maskera eller anonymisera.
+///
+/// Auro 2026-10-10: "vi ska kunna skriva och BE assistenten i en session att
+/// maskera och/eller anonymisera en text." Texten står i ett block att
+/// kopiera, antalet per sort står ovanför, och kartan — vem [NAMN A] är —
+/// fälls ut bara när du ber om den. Allt det här finns redan på datorn och
+/// ingenting av det har lämnat den; kartan är svaret på "vem är [NAMN A]",
+/// och den ritas här och ingen annanstans.
+const MASKKORT_RUBRIK = () => ({ maskera: t('maskkort.rubrik.maskera'), anonymisera: t('maskkort.rubrik.anonymisera'), bada: t('maskkort.rubrik.bada') });
+
+function ritaMaskning(tt) {
+  const m = tt.maskning;
+  const d = el('section', 'maskkort');
+  const topp = el('header', 'maskkort-topp');
+  topp.append(ikon('mask', 16), el('b', null, { textContent: m.fel ? t('maskkort.rubrik.maskera') : MASKKORT_RUBRIK()[m.gor] || t('maskkort.rubrik.maskera') }));
+  if (m.namn) topp.append(el('span', 'maskkort-namn', { textContent: m.namn }));
+  d.append(topp);
+
+  // Antalet per sort, som märken. Inget ersatt är också ett besked.
+  const antal = el('div', 'maskkort-antal');
+  if (m.antal?.length) for (const a of m.antal) antal.append(el('span', 'maskkort-sort', { textContent: t('maskkort.sortAntal', { sort: a.sort, n: a.antal }) }));
+  else antal.append(el('span', 'maskkort-sort tom', { textContent: t('maskkort.ingetErsatt') }));
+  if (m.anonym) antal.append(el('span', 'maskkort-sort vagare', { textContent: t('maskkort.omskrivna', { n: m.anonym.block - m.anonym.lamnade, av: m.anonym.block }) }));
+  d.append(antal);
+
+  const text = el('div', 'maskkort-text', { innerHTML: markera(m.text || '') });
+  d.append(text);
+  if (m.fel) d.append(el('p', 'fel', { textContent: t('maskkort.anonymFel', { fel: m.fel }) }));
+
+  // Kartan, på begäran. Stängd från början: den som tittar över axeln ska
+  // inte få namnen serverade.
+  if (m.karta?.length) {
+    const k = el('details', 'maskkort-karta');
+    k.append(el('summary', null, { textContent: t('maskkort.visaKartan', { n: m.karta.length }) }));
+    const tab = el('table');
+    const huvud = el('tr');
+    huvud.append(el('th', null, { textContent: t('maskkort.kolumnPlatshallare') }), el('th', null, { textContent: t('maskkort.kolumnStarFor') }));
+    tab.append(huvud);
+    for (const r of m.karta) {
+      const rad = el('tr');
+      const ph = el('td');
+      ph.innerHTML = markera(r.platshallare);
+      rad.append(ph, el('td', null, { textContent: r.original }));
+      tab.append(rad);
+    }
+    k.append(tab, el('p', 'fotnotis', { textContent: t('maskkort.kartanOm') }));
+    d.append(k);
+  }
+
+  const fot = el('div', 'maskkort-fot');
+  fot.append(el('span', 'maskkort-lokalt', { textContent: t('maskkort.lokalt') }));
+  const knappar = el('div', 'maskkort-knappar');
+  // En bilaga har redan en exportväg: samma fil, i den vy som gjordes.
+  const fil = m.fil && (stat.session?.filer || []).some(f => f.id === m.fil) ? m.fil : null;
+  if (fil) {
+    const vy = m.anonymiserad ? 'anonym' : 'maskerad';
+    const ut = el('button', 'tyst liten', { type: 'button', textContent: t('kort.exporteraText') });
+    ut.onclick = () => hamtaFil(fil, vy, 'txt');
+    const pdf = el('button', 'tyst liten', { type: 'button', textContent: t('kort.exporteraPdf') });
+    pdf.onclick = () => hamtaFil(fil, vy, 'pdf');
+    knappar.append(ut, pdf);
+  }
+  const kop = el('button', 'primar liten', { type: 'button' });
+  kop.append(ikon('kopiera', 15), document.createTextNode(t('maskkort.kopiera')));
+  kop.onclick = () => kopiera(m.text || '', kop);
+  knappar.append(kop);
+  fot.append(knappar);
+  d.append(fot);
+  return d;
 }
 
 function ritaUppdragsforslag(tt) {
@@ -5435,9 +5737,11 @@ function visaGrind(f) {
   // Nu står den alltid. Kortet öppnas bara när du vill ha texten någon
   // annanstans, och då är skillnaden mellan maskerat och anonymiserat hela
   // beslutet.
-  const gjord = stat.behandling !== 'anonym' || f.anonymiserad;
+  // Anonymiserat bara när valet gäller, alltså mot en molnmodell (2026-10-10).
+  const anonymValt = behNu() === 'anonym';
+  const gjord = !anonymValt || f.anonymiserad;
   const r = el('p', `anonymrad${gjord ? ' gjord' : ' utebliven'}`);
-  r.textContent = stat.behandling !== 'anonym'
+  r.textContent = !anonymValt
     ? t('grind.maskerat')
     : f.anonymiserad
       ? t('grind.maskeratOchAnonymiserat')
@@ -5862,6 +6166,22 @@ async function skicka(text) {
     if (vy.session) { await oppnaSession(vy.session); return skicka(text); }
   }
 
+  // I bankens vy (/du) är det du skriver en rättelse av det Maximus vet om
+  // dig — "jag har slutat på X", "glöm allt om Z" — inte en fråga till ett
+  // nytt samtal. Ett svar som matchar en knapp väljer knappen.
+  if (manus.duVy && !manus.session && !stat.aktiv) {
+    $('#fraga').value = '';
+    $('#fraga').dispatchEvent(new Event('input'));
+    const tt = text.trim().toLowerCase().replace(/[.!?]+$/, '');
+    const rad = [...manus.rader].reverse().find(r => r.valj);
+    const traff = rad?.val?.find(v => v.text.toLowerCase() === tt || (v.id === 'ja' && /^(ja|yes|ok|okej|gör det|do it)$/.test(tt)) || (v.id === 'nej' && /^(nej|no|avbryt|cancel)$/.test(tt)));
+    if (traff) return rad.valj(traff);
+    manus.rader.push({ av: 'du', text }); rita();
+    // En knack-knack (2026-10-10): svaret på frågan, i samma flöde.
+    if (manus.knack) return svaraKnack(text);
+    return rattaBanken(text);
+  }
+
   // Väntar ett underlag på att bli läst går frågan i kö i stället för att
   // ställas till en session som ännu inte har filen.
   if (vantarPaBilaga()) {
@@ -6072,8 +6392,12 @@ function fragaOm(rubrik, { om = '', forval = '', hemlig = false, bara = false } 
   return new Promise(los => {
     const d = $('#fragaruta');
     $('#fragaruta-rubrik').textContent = rubrik;
-    $('#fragaruta-om').textContent = om;
-    $('#fragaruta-om').hidden = !om;
+    // omMd (2026-10-10): text med rubriker och listor, ritad som markdown —
+    // versionsnoterna stod förut som en enda hoptryckt rad.
+    const omRuta = $('#fragaruta-om');
+    if (omMd) omRuta.innerHTML = md(omMd); else omRuta.textContent = om;
+    omRuta.classList.toggle('md', Boolean(omMd));
+    omRuta.hidden = !om && !omMd;
     const f = $('#fragaruta-svar');
     f.hidden = bara;
     $('#fragaruta-avbryt').hidden = bara;
@@ -6106,7 +6430,7 @@ function fragaOm(rubrik, { om = '', forval = '', hemlig = false, bara = false } 
 /// `prompt()` och `confirm()` finns inte i Tauris webbvy — de returnerar
 /// undefined utan att visa något, vilket är värre än att saknas: koden ser ut
 /// att fråga och gör det inte.
-function bekrafta(rubrik, { om = '', ja = t('allmant.ja'), nej = t('allmant.avbryt'), fara = false } = {}) {
+function bekrafta(rubrik, { om = '', omMd = '', ja = t('allmant.ja'), nej = t('allmant.avbryt'), fara = false } = {}) {
   return new Promise(los => {
     $('#fragaruta-avbryt').textContent = nej;
     const d = $('#fragaruta');
@@ -6513,10 +6837,30 @@ async function ritaUppdatering() {
 /// (Fas 25). En uppdatering som installerar sig utan signaturkontroll vore en
 /// bakdörr med ett vänligt gränssnitt. Utanför appen — i en webbläsare —
 /// finns inget skal, och då öppnas hämtningssidan.
+/// Versionsnoterna står på svenska, sedan "---", sedan engelska (data/slapp.md).
+/// Bara ditt språk visas.
+function noterPaSprak(om) {
+  const delar = String(om || '').split(/\n-{3,}\n/);
+  return ((sprak() === 'en' && delar[1]) ? delar[1] : delar[0]).trim();
+}
+
+/// Kör appen från DMG:n eller från macOS karantänkopia (App Translocation)
+/// ligger den på en skrivskyddad plats: uppdateringen föll med "Read-only file
+/// system (os error 30)" (2026-10-10). Säg det, och öppna Program-mappen.
+function appPlatsRuta({ uppdatering = false } = {}) {
+  if (!['dmg', 'karantan'].includes(upp.appPlats)) return false;
+  bekrafta(t('appplats.rubrik'), {
+    om: [upp.appPlats === 'dmg' ? t('appplats.dmg') : t('appplats.karantan'), uppdatering ? t('appplats.uppdatering') : null].filter(Boolean).join('\n\n'),
+    ja: t('appplats.oppnaProgram'), nej: t('allmant.senare'),
+  }).then(ja => { if (ja) post('/api/oppna-program', {}).catch(() => {}); });
+  return true;
+}
+
 async function visaNyVersion(r) {
   const T = window.__TAURI_INTERNALS__;
+  if (T && appPlatsRuta({ uppdatering: true })) return;
   const ja = await bekrafta(t('uppdatering.versionFinns', { senaste: r.senaste }), {
-    om: [r.om, T ? t('uppdatering.installOm') : null,
+    omMd: [noterPaSprak(r.om), T ? t('uppdatering.installOm') : null,
       !T && !r.signerad ? t('uppdatering.osignerad') : null]
       .filter(Boolean).join('\n\n') || t('uppdatering.hamtaNya'),
     ja: T ? t('uppdatering.installeraNu') : t('modeller.hamta'), nej: t('allmant.senare'),
@@ -7215,12 +7559,15 @@ function kortRemsa(k) {
   const f = k.fil || {};
   const d = Number(f.dolda) || 0;
   if (k.anonym) return t('kort.remsa.anonymiserat');
+  if (f.publik) return t('kort.remsa.publik');
   if (!d) return f.sort || 'underlag';
   return t('kort.remsa.dolda', { n: d });
 }
 
 function kortFor(f) {
-  if (!kort.has(f.id)) kort.set(f.id, { id: f.id, namn: f.namn, vy: 'maskerad', fas: 'fragar', fil: f });
+  // En publik källa (en nyhet, en sida agenten läst) maskeras inte och får
+  // ingen anonymiseringsfråga (2026-10-10): den är redan publik.
+  if (!kort.has(f.id)) kort.set(f.id, { id: f.id, namn: f.namn, vy: 'maskerad', fas: f.publik ? 'publik' : 'fragar', fil: f });
   const k = kort.get(f.id);
   k.fil = f;
   k.namn = f.namn;
@@ -7254,6 +7601,8 @@ function ritaKort(k) {
   const vyer = el('div', 'lagen dokkort-vyer', { role: 'radiogroup' });
   for (const [v, text] of [['original', t('underlag.vy.original')], ['maskerad', t('underlag.vy.maskerad')], ['anonym', t('underlag.vy.anonymiserad')]]) {
     if (v === 'anonym' && !k.anonym && k.fas !== 'skriver') continue;
+    // En publik källa har en enda vy: texten som den står på sidan.
+    if (k.fil.publik) continue;
     // Maskerades den inte finns ingen maskerad vy att visa.
     if (v === 'maskerad' && k.fil.omaskerad) continue;
     const b = el('button', null, { type: 'button', role: 'radio', textContent: text });
@@ -7347,7 +7696,10 @@ function ritaKort(k) {
   if (k.rullning) queueMicrotask(() => { kropp.scrollTop = k.rullning; });
 
   const fot = el('div', 'dokkort-fot');
-  if (k.fas === 'fragar') {
+  // Frågan om anonymisering hör till det som går ut (Auro 2026-10-10). Mot
+  // den lokala modellen står kortet som klart; Anonymisera finns kvar bland
+  // knapparna, och det går att be om i samtalet.
+  if (k.fas === 'fragar' && behGaller()) {
     fot.append(el('span', 'dokkort-fraga', { textContent: t('kort.villDuAnonymisera') }));
     const ja = el('button', 'primar liten', { type: 'button', textContent: t('kort.anonymisera') });
     ja.onclick = () => anonymisera(k);
@@ -7371,7 +7723,7 @@ function ritaKort(k) {
     const gom = el('button', 'tyst liten', { type: 'button', textContent: t('allmant.fallIhop') });
     gom.onclick = () => { k.hopfallt = true; rita(); };
     fot.append(el('span', 'dokkort-fraga', { textContent: '' }), gom, kop, utText, ut);
-    if (k.fas !== 'skriver' && !k.anonym) {
+    if (k.fas !== 'skriver' && !k.anonym && !k.fil.publik) {
       const anon = el('button', 'tyst liten', { type: 'button', textContent: t('kort.anonymisera') });
       anon.onclick = () => anonymisera(k);
       fot.append(anon);
@@ -7394,10 +7746,17 @@ function textenI(k) {
   return k.fil.maskerad || '';
 }
 
+/// Var en publik källa kommer ifrån: adressens värd, annars källans namn.
+const publikVard = f => { try { return new URL(f.publik?.url).hostname.replace(/^www\./, ''); } catch { return f.publik?.fran || ''; } };
+
+// "Så här skickas dokumentet" bara när något skickas: mot den lokala modellen
+// är den maskerade vyn den du tar med dig (Auro 2026-10-10).
+const maskeradeRad = k => (behGaller() ? t('kort.status.maskerade', { n: k.fil.dolda }) : t('kort.status.maskeradeLokalt', { n: k.fil.dolda }));
 const kortStatus = k => ({
-  fragar: t('kort.status.maskerade', { n: k.fil.dolda }),
+  fragar: maskeradeRad(k),
+  publik: behGaller() ? t('kort.status.publik', { vard: publikVard(k.fil) }) : t('kort.status.publikLokalt', { vard: publikVard(k.fil) }),
   klar: k.anonym ? t('kort.status.anonymiserad', { lamnade: k.lamnade ? t('kort.status.styckenKvar', { n: k.lamnade }) : '', niva: k.niva ? t('kort.status.rojningsrisk', { niva: k.niva }) : '' })
-    : t('kort.status.maskerade', { n: k.fil.dolda }),
+    : maskeradeRad(k),
   skriver: t('kort.status.skriver', { nr: k.klara + 1, antal: k.stycken?.length || 0 }),
   fel: k.fel || t('allmant.nagotGickFel'),
 }[k.fas] || '');
@@ -7740,8 +8099,8 @@ function ritaBilagor() {
     const b = el('button', `bilaga${f.arbetar ? ' arbetar' : ''}${f.trasig ? ' trasig' : ''}`, { type: 'button' });
     b.append(el('i', null, {}), el('span', null, { textContent: f.namn }));
     b.firstChild.append(ikon(f.sort === 'lyssnar' || filsort(f) === 'ljud' ? 'liggare' : 'arkiv', 13));
-    b.append(el('b', null, { textContent: f.arbetar ? f.sort : f.trasig ? t('bilaga.gickInte') : t('bilaga.dolda', { n: f.dolda }) }));
-    b.title = f.trasig ? f.fel : f.arbetar ? t('bilaga.arbetar') : t('bilaga.lasVadSomSkickas');
+    b.append(el('b', null, { textContent: f.arbetar ? f.sort : f.trasig ? t('bilaga.gickInte') : f.publik ? t('bilaga.publik') : t('bilaga.dolda', { n: f.dolda }) }));
+    b.title = f.trasig ? f.fel : f.arbetar ? t('bilaga.arbetar') : behGaller() ? t('bilaga.lasVadSomSkickas') : t('bilaga.lasDokumentet');
     if (!f.arbetar && !f.trasig) b.onclick = () => {
       if (kort.has(f.id)) { kort.delete(f.id); rita(); }
       else { kortFor(f); rita(); rullaNer(true); }
@@ -7764,7 +8123,11 @@ async function visaFil(f) {
   const hel = await hamta(`/api/sessioner/${stat.aktiv}`).catch(() => null);
   const full = hel?.filer?.find(x => x.id === f.id) || f;
   $('#fil-namn').textContent = full.namn;
-  $('#fil-om').textContent = t('fil.om', { sort: full.sort, tecken: full.tecken, dolda: full.dolda });
+  $('#fil-om').textContent = full.publik ? t('fil.omPublik', { sort: full.sort, tecken: full.tecken, vard: publikVard(full) })
+    : t('fil.om', { sort: full.sort, tecken: full.tecken, dolda: full.dolda });
+  // En publik källa anonymiseras inte (2026-10-10).
+  $('#fil-anonymisera').hidden = Boolean(full.publik);
+  for (const b of $('#fil-flikar').children) if (b.dataset.vy === 'anonym') b.hidden = Boolean(full.publik);
   let anonym = full.anonym || '';
   let visad = 'maskerad';
 
@@ -7853,6 +8216,38 @@ function visaOrat() {
     if (r.error) { $('#inst-orat-om').textContent = r.error; knapp.disabled = false; return; }
     upp.orat = r;
     visaOrat();
+  };
+}
+
+/// Namnmodellen under maskeringen (Auro 2026-10-10):
+/// på eller av, och hämta när filen saknas. Av betyder bara reglerna, som
+/// före den; på är förvalt när filen finns.
+function ritaNamnmodell() {
+  const n = upp.namnmodell;
+  if (!n) return;
+  const vaxel = $('#inst-namnmodell'), om = $('#inst-namnmodell-om'), knapp = $('#inst-namnmodell-hamta');
+  vaxel.checked = n.pa !== false;
+  vaxel.disabled = !n.plattform;
+  om.textContent = !n.plattform ? t('inst.namnmodell.plattform')
+    : n.fel === 'summa' && !n.finns ? t('inst.namnmodell.summa')
+    : !n.finns ? t('inst.namnmodell.saknas', { storlek: n.storlek })
+    : n.pa === false ? t('inst.namnmodell.av')
+    : t('inst.namnmodell.pa', { namn: n.namn, licens: n.licens, storlek: n.storlek });
+  knapp.hidden = Boolean(n.finns) || !n.plattform;
+  vaxel.onchange = async () => {
+    const r = await post('/api/namnmodell', { pa: vaxel.checked }).catch(e => ({ error: e.message }));
+    if (r.error) { om.textContent = r.error; return; }
+    upp.namnmodell = r;
+    ritaNamnmodell();
+  };
+  knapp.onclick = async () => {
+    knapp.disabled = true;
+    om.textContent = t('inst.namnmodell.hamtar');
+    const r = await post('/api/namnmodell/hamta').catch(e => ({ error: e.message }));
+    knapp.disabled = false;
+    if (r.error) { om.textContent = r.error; return; }
+    upp.namnmodell = r;
+    ritaNamnmodell();
   };
 }
 
@@ -8217,11 +8612,12 @@ async function ritaMoln() {
     $('#moln-pa-om').textContent = r.prov ? (r.prov.ok ? t('moln.provatOk', { namn: r.namn }) : t('moln.provatFel', { fel: r.prov.fel }))
       : t('inst.moln.av');
     upp.moln = r.pa ? { pa: true, namn: r.namn } : null;
+    visaLage();
     await ritaMoln();
   };
   $('#moln-pa').onchange = e => spara(e.target.checked);
   $('#moln-nyckel').onchange = () => { if ($('#moln-nyckel').value.trim()) spara($('#moln-pa').checked); };
-  $('#moln-glom').onclick = async () => { await post(`/api/moln/${lev.value}/glom`, {}).catch(() => {}); upp.moln = null; await ritaMoln(); };
+  $('#moln-glom').onclick = async () => { await post(`/api/moln/${lev.value}/glom`, {}).catch(() => {}); upp.moln = null; visaLage(); await ritaMoln(); };
   $('#moln-logga-ut').onclick = $('#moln-glom').onclick;
   $('#moln-logga-in').onclick = async () => {
     $('#moln-loggain-om').textContent = t('moln.webblasarenOppnas');
@@ -8339,9 +8735,15 @@ async function ritaAgentinst() {
 
   $('#ag-post-val').hidden = !agentval.epost;
   $('#ag-ant-val').hidden = !agentval.anteckningar;
-  $('#ag-post-om').textContent = agentval.epost
-    ? `${agentval.epost.konto} · ${agentval.epost.lada}` : t('allmant.avPunkt');
+  // Kontona och kalendrarna, var och en med sin etikett (2026-10-10).
+  const konton = epostKontonAv(agentval.epost);
+  $('#ag-post-om').textContent = konton.length ? t('agent.kontonPa', { n: konton.length }) : t('allmant.avPunkt');
+  $('#ag-post-lista').textContent = konton.map(k => `${k.konto} (${etikettNamn(k.etikett)}) · ${k.lador.map(l => (l === 'INBOX' ? t('post.varInkorgen') : l)).join(', ')}`).join(' — ');
+  const kalendrar = kalendrarAv(agentval.kalender);
   $('#ag-kal-om').textContent = agentval.kalender ? t('agent.kalenderPa') : t('allmant.avPunkt');
+  $('#ag-kal-val').hidden = !agentval.kalender;
+  $('#ag-kal-lista').textContent = kalendrar.length
+    ? kalendrar.map(k => `${k.namn} (${etikettNamn(k.etikett)})`).join(', ') : t('agent.allaKalendrar');
   $('#ag-arb-om').textContent = agentval.arbetar
     ? t('agent.arbetarPa')
     : t('agent.arbetarAv');
@@ -8354,9 +8756,6 @@ async function ritaAgentinst() {
     : t('agent.anteckningarSkrivAv');
   await fyllMappar();
   if (agentval.anteckningar?.mapp) $('#ag-ant-mapp').value = antnyckel(agentval.anteckningar);
-  if (agentval.epost) {
-    $('#ag-post-lada').value = agentval.epost.lada || 'INBOX';
-  }
 
   // Behandlingarna kommer från servern, som allt annat som har en lista.
   const b = $('#ag-behandling');
@@ -8366,8 +8765,6 @@ async function ritaAgentinst() {
   if (b) b.value = agentval.behandling || 'maskerad';
   await ritaStartlage();
   ritaHandlingsspakar();
-
-  await fyllPostkonton();
 }
 
 /// När agenten kör: läget ur launchd-filerna, inte bara ur valet (Fas 26).
@@ -8427,6 +8824,39 @@ function ritaHandlingsspakar() {
   fov.onchange = () => sparaInstallningar({ svar: { ...(installningar.svar || {}), forslag: fov.value } }).catch(() => {});
   fo.append(fov);
   ruta.append(sk, el('p', 'fotnotis ag-skicka-om', { textContent: t('agent.skickaSvarOm') }), fo);
+  // Kollegan (2026-10-10): förslag med skäl, och knack-knack högst var N:e dag.
+  const k = { forslag: installningar.kollega?.forslag !== false, knack: installningar.kollega?.knack !== false, dagar: installningar.kollega?.dagar || 1 };
+  const sparaK = async delar => {
+    const ny = { ...k, ...delar };
+    Object.assign(k, ny);
+    installningar = { ...installningar, kollega: ny };
+    await sparaInstallningar({ kollega: ny }).catch(() => {});
+  };
+  // Samma rader som resten av Agenten: text till vänster, växeln till höger.
+  $('#ag-kollega')?.remove();
+  const har = el('div', 'har', { id: 'ag-kollega' });
+  const rad = (text, om, kontroll) => {
+    const r = el('div', 'har-rad');
+    const sp = el('span', null, { textContent: text });
+    if (om) sp.append(el('i', 'under-rad', { textContent: om }));
+    r.append(sp, kontroll);
+    har.append(r);
+  };
+  const vaxel = (id, pa, gor) => {
+    const l = el('label', 'vaxel');
+    const in_ = el('input', null, { type: 'checkbox', id, checked: pa });
+    in_.onchange = () => gor(in_.checked);
+    l.append(in_, el('span'));
+    return l;
+  };
+  const kdv = el('select', null, { id: 'ag-kollega-dagar', disabled: !k.knack });
+  for (const n of [1, 2, 3, 7, 14]) kdv.append(el('option', null, { value: String(n), textContent: n === 1 ? t('kollega.inst.varjeDag') : t('kollega.inst.varNteDag', { n }) }));
+  kdv.value = String(k.dagar);
+  kdv.onchange = () => sparaK({ dagar: Number(kdv.value) });
+  rad(t('kollega.inst.forslag'), t('kollega.inst.forslagOm'), vaxel('ag-kollega-forslag', k.forslag, v => sparaK({ forslag: v })));
+  rad(t('kollega.inst.knack'), t('kollega.inst.knackOm'), vaxel('ag-kollega-knack', k.knack, v => { kdv.disabled = !v; sparaK({ knack: v }); }));
+  rad(t('kollega.inst.dagar'), null, kdv);
+  ruta.after(har);
 }
 
 async function valjStartlage() {
@@ -8453,14 +8883,122 @@ async function fyllMappar() {
   }
 }
 
-/// Kontona i väljaren. Hämtas först när man slår på E-post — en lista över
-/// någons mejlkonton ska inte hämtas för att hon råkade öppna en flik.
-async function fyllPostkonton() {
-  const v = $('#ag-post-konto');
-  if (!v || !$('#ag-post-pa')?.checked || v.children.length) return;
-  const d = await hamta('/api/post/konton').catch(() => ({ konton: [] }));
-  for (const k of d.konton || []) v.append(el('option', null, { value: k, textContent: k }));
-  if (agentval?.epost?.konto) v.value = agentval.epost.konto;
+/// Kontona agenten läser, i den nya formen ur vilken som helst: den gamla
+/// (`{ konto, lada }`) blir en lista med ett. Samma läsning som epostUr() i
+/// lib/konton.mjs; servern sparar alltid den nya.
+const epostKontonAv = e => (Array.isArray(e?.konton) ? e.konton.filter(k => k?.konto)
+  : e?.konto ? [{ konto: e.konto, lador: [e.lada || 'INBOX'], etikett: e.etikett || null }] : [])
+  .map(k => ({ konto: k.konto, lador: Array.isArray(k.lador) && k.lador.length ? k.lador : ['INBOX'], etikett: k.etikett || null }));
+/// De valda kalendrarna. Namn som strängar (den gamla formen) blir utan etikett.
+const kalendrarAv = k => (Array.isArray(k?.kalendrar) ? k.kalendrar : [])
+  .map(x => (typeof x === 'string' ? { id: null, namn: x, etikett: null } : { id: x.id || null, namn: x.namn || x.id, konto: x.konto || null, etikett: x.etikett || null }));
+
+/// Kontona i Mail att välja bland, med etikett. Hämtas först när man slår
+/// på E-post eller trycker Välj — en lista över någons mejlkonton ska inte
+/// hämtas för att hon råkade öppna en flik. Null: avbrutet eller inget att välja.
+async function valjPostkonton() {
+  const d = await hamta('/api/post/konton').catch(e => ({ konton: [], fel: e.message }));
+  if (d.fel || !d.konton?.length) { $('#ag-post-om').textContent = d.fel || t('agent.ingetMejlkonto'); return null; }
+  const fore = epostKontonAv(agentval?.epost);
+  const val = await valjMedEtikett({ rubrik: t('etikett.kontonRubrik'), under: t('etikett.kontonUnder'), lador: true,
+    rader: d.konton.map(k => {
+      const f = fore.find(x => x.konto === k.namn);
+      return { id: k.namn, namn: k.namn, om: k.adress || '', vald: Boolean(f) || d.konton.length === 1,
+        etikett: f?.etikett || undefined, forval: k.forval || null, ladorVal: f?.lador || ['INBOX'] };
+    }) });
+  return val ? { konton: val.map(x => ({ konto: x.id, lador: x.lador, etikett: x.etikett })) } : null;
+}
+
+/// Kalendrarna att välja bland, med etikett. Var allt valt (förvalet sedan
+/// tidigare) står alla förbockade. I guiden kommer listan med (`lista`), och
+/// då är de med ett uppenbart förval förbockade.
+async function valjKalendrar({ lista = null } = {}) {
+  const d = lista ? { kalendrar: lista } : await hamta('/api/kalender/kalendrar').catch(e => ({ kalendrar: [], fel: e.message }));
+  if (d.fel || !d.kalendrar?.length) { $('#ag-kal-om').textContent = d.fel || t('agent.ingenKalender'); return null; }
+  const fore = lista ? [] : kalendrarAv(agentval?.kalender);
+  const alla = !lista && Boolean(agentval?.kalender) && !fore.length;
+  const nyckel = k => k.id || k.namn;
+  const val = await valjMedEtikett({ rubrik: t('etikett.kalendrarRubrik'), under: t('etikett.kalendrarUnder'),
+    rader: d.kalendrar.map(k => {
+      const f = fore.find(x => (x.id && x.id === k.id) || (!x.id && x.namn === k.namn));
+      return { id: nyckel(k), namn: k.namn, om: k.konto || '', vald: Boolean(f) || alla || Boolean(lista && k.forval), etikett: f?.etikett || undefined, forval: k.forval || null };
+    }) });
+  if (!val) return null;
+  return { kalendrar: val.map(x => { const k = d.kalendrar.find(y => nyckel(y) === x.id); return { id: k.id || null, namn: k.namn, konto: k.konto || null, etikett: x.etikett }; }) };
+}
+
+/// Konton och kalendrar med etikett (2026-10-10). Auro: "E-post och
+/// kalender ska vara flerval, och vi ska kunna beskriva eller kategorisera
+/// dem (privat, professionell)." En ruta för båda, i Inställningar: en bock
+/// per källa och en etikett — Privat, Jobb, en egen ("styrelsen"), eller
+/// ingen, och då gissar Maximus per sak. Förvalet kommer från servern
+/// (lib/konton.mjs); saknas det frågar rutan i stället för att gissa: en
+/// bockad källa utan vald etikett går inte att spara.
+///
+/// `rader`: { id, namn, om, vald, etikett, forval, ladorVal }. Svaret:
+/// [{ id, etikett, lador? }] för de bockade, eller null.
+function valjMedEtikett({ rubrik, under = '', rader, lador = false }) {
+  return new Promise(los => {
+    const d = el('dialog', 'kallval etikettval');
+    const f = el('form', null, { method: 'dialog' });
+    f.append(el('h2', null, { textContent: rubrik }), el('p', 'under', { textContent: under }));
+    const lista = el('div', 'kallval-lista');
+    const fel = el('p', 'fel', { hidden: true });
+    const VAL = [['', t('etikett.valj')], ['privat', t('etikett.privat')], ['jobb', t('etikett.jobb')], ['egen', t('etikett.egen')], ['ingen', t('etikett.ingenVal')]];
+    const rutor = rader.map(r => {
+      const rad = el('div', 'etikettrad');
+      const l = el('label', 'vaxelrad');
+      const c = el('input', null, { type: 'checkbox', checked: Boolean(r.vald) });
+      const namn = el('span', null, { textContent: r.namn });
+      if (r.om) namn.append(el('small', null, { textContent: r.om }));
+      l.append(c, namn);
+      const v = el('select', null);
+      v.setAttribute('aria-label', t('etikett.forKallan', { namn: r.namn }));
+      for (const [id, text] of VAL) v.append(el('option', null, { value: id, textContent: text }));
+      const egen = el('input', null, { type: 'text', maxLength: 40, placeholder: t('etikett.egenPlats'), spellcheck: false, autocomplete: 'off' });
+      egen.setAttribute('aria-label', t('etikett.egenFor', { namn: r.namn }));
+      const e = r.etikett !== undefined ? r.etikett : r.forval;
+      if (e === 'privat' || e === 'jobb') v.value = e;
+      else if (e) { v.value = 'egen'; egen.value = e; }
+      egen.hidden = v.value !== 'egen';
+      v.onchange = () => { egen.hidden = v.value !== 'egen'; rad.classList.remove('saknar'); if (!egen.hidden) egen.focus(); };
+      const val = el('div', 'etikettrad-val');
+      val.append(v, egen);
+      let ladaFalt = null;
+      if (lador) {
+        ladaFalt = el('input', null, { type: 'text', value: (r.ladorVal || ['INBOX']).join(', '), placeholder: 'INBOX', spellcheck: false, autocomplete: 'off', title: t('etikett.ladorOm') });
+        ladaFalt.setAttribute('aria-label', t('etikett.lador', { namn: r.namn }));
+        val.append(ladaFalt);
+      }
+      rad.append(l, val);
+      lista.append(rad);
+      return { r, c, v, egen, ladaFalt, rad };
+    });
+    const knappar = el('div', 'dlg-knappar');
+    const avbryt = el('button', 'tyst', { type: 'button', textContent: t('allmant.avbryt') });
+    avbryt.onclick = () => { d.remove(); los(null); };
+    knappar.append(avbryt, el('button', 'primar', { type: 'submit', textContent: t('allmant.spara') }));
+    f.append(lista, fel, knappar);
+    f.onsubmit = ev => {
+      const valda = rutor.filter(x => x.c.checked);
+      const saknas = valda.filter(x => !x.v.value || (x.v.value === 'egen' && !x.egen.value.trim()));
+      for (const x of rutor) x.rad.classList.toggle('saknar', saknas.includes(x));
+      if (!valda.length || saknas.length) {
+        ev.preventDefault();
+        fel.textContent = valda.length ? t('etikett.saknas', { namn: ochLista(saknas.map(x => x.r.namn)) }) : t('etikett.ingenVald');
+        fel.hidden = false;
+        return;
+      }
+      d.remove();
+      los(valda.map(x => ({ id: x.r.id,
+        etikett: x.v.value === 'egen' ? x.egen.value.trim() : x.v.value === 'ingen' ? null : x.v.value,
+        ...(x.ladaFalt ? { lador: x.ladaFalt.value.split(',').map(y => y.trim()).filter(Boolean).slice(0, 10) } : {}) })));
+    };
+    d.append(f);
+    d.onclose = () => { if (d.isConnected) { d.remove(); los(null); } };
+    document.body.append(d);
+    d.showModal();
+  });
 }
 
 /// Sparar ETT fält. Servern slår ihop, och läser fält för fält.
@@ -8492,23 +9030,24 @@ function kopplaAgentinst() {
     const x = $(sel); if (x) x.onchange = e => slaPaKalla(id, e.target.checked);
   }
   if (!$('#ag-post-pa')) return;
+  // Påslagen utan konto betyder ingenting: rutan frågar vilka, med etikett.
+  // Avbryts den står e-posten kvar som av (2026-10-10, flera konton).
   $('#ag-post-pa').onchange = async e => {
     if (!e.target.checked) return sparaAgent({ epost: null });
-    // Påslagen utan konto betyder ingenting. Listan hämtas, första kontot
-    // väljs, och man byter om det är fel — hellre det än en påslagen rad som
-    // inte gör något.
-    $('#ag-post-val').hidden = false;
-    await fyllPostkonton();
-    const konto = $('#ag-post-konto').value;
-    if (!konto) { e.target.checked = false; $('#ag-post-om').textContent = t('agent.ingetMejlkonto'); return; }
-    await sparaAgent({ epost: { konto, lada: $('#ag-post-lada').value || 'INBOX' } });
+    const v = await valjPostkonton();
+    if (!v) { e.target.checked = false; return; }
+    await sparaAgent({ epost: v });
   };
-  $('#ag-post-konto').onchange = () =>
-    sparaAgent({ epost: { konto: $('#ag-post-konto').value, lada: $('#ag-post-lada').value || 'INBOX' } });
-  $('#ag-post-lada').onchange = () =>
-    sparaAgent({ epost: { konto: $('#ag-post-konto').value, lada: $('#ag-post-lada').value || 'INBOX' } });
+  $('#ag-post-valj').onclick = async () => { const v = await valjPostkonton(); if (v) await sparaAgent({ epost: v }); };
 
-  $('#ag-kal-pa').onchange = e => sparaAgent({ kalender: e.target.checked ? { kalendrar: [] } : null });
+  // Kalendern: alla, eller de du väljer — var och en med sin etikett.
+  $('#ag-kal-pa').onchange = async e => {
+    if (!e.target.checked) return sparaAgent({ kalender: null });
+    const v = await valjKalendrar();
+    if (!v) { e.target.checked = false; return; }
+    await sparaAgent({ kalender: v });
+  };
+  $('#ag-kal-valj').onclick = async () => { const v = await valjKalendrar(); if (v) await sparaAgent({ kalender: v }); };
   $('#ag-bev-pa').onchange = e => sparaAgent({ bevakning: e.target.checked });
   $('#ag-sid-pa').onchange = e => sparaAgent({ sidor: e.target.checked });
   // Att låta agenten öppna samtal är skillnaden mellan en sorterare och en
@@ -8731,6 +9270,7 @@ function visaInstallningar(flik) {
   visaOrat();
   visaWebblasare();
   ritaMaskering();
+  ritaNamnmodell();
   ritaAgentinst();
   ritaProfil();
   ritaMallar();
@@ -9105,6 +9645,75 @@ function visaFyndsamtal(h) {
   rakna();
 }
 
+// ── Knack-knack (2026-10-10) ──────────────────────────────────────────────
+//
+// Auro 2026-10-10: "Ibland ska den göra en 'knack-knack' till oss (när vi
+// sitter vid datorn, inte när skärmsläckaren är på) för att få mer
+// återkoppling." Servern knackar bara när du är aktiv, inget samtal och
+// inget möte pågår, och högst var N:e dag (lib/kollega.mjs). Här visas den
+// bara om ingenting skymmer — vilan, locket, lösenordet. Skyms den säger
+// fönstret inte att den syntes, och då räknas den inte. Kortet står kvar
+// tills du svarat, och att avböja är ett klick.
+function visaKnack(k) {
+  if (!k?.id || notisSkymd() || document.hidden) return;
+  if (document.querySelector(`.knack[data-id="${CSS.escape(k.id)}"]`)) return;
+  let lada = $('#fyndnotiser');
+  if (!lada) { lada = el('div', 'fyndnotiser', { id: 'fyndnotiser' }); document.body.append(lada); }
+  const n = el('div', 'fyndnotis knack', { role: 'dialog', ariaLabel: t('kollega.knackKnack') });
+  n.dataset.id = k.id;
+  const oppna = el('button', 'fyndnotis-oppna', { type: 'button' });
+  oppna.append(el('small', null, { textContent: t('kollega.knackKnack') }), el('b', null, { textContent: k.halsning }));
+  oppna.onclick = () => { n.remove(); oppnaKnack(k); };
+  const val = el('div', 'knack-val');
+  const svara = async (svar, kvitto) => {
+    n.remove();
+    const r = await post('/api/kollega/knack', { id: k.id, svar }).catch(() => null);
+    if (r?.lage) installningar = { ...installningar, kollega: r.lage };
+    if (kvitto) kortKvitto(kvitto);
+  };
+  const knapp = (text, gor, klass = 'tyst liten') => { const b = el('button', klass, { type: 'button', textContent: text }); b.onclick = gor; val.append(b); };
+  knapp(t('kollega.svara'), () => { n.remove(); oppnaKnack(k); }, 'primar liten');
+  knapp(t('kollega.inteNu'), () => svara('inte_nu'));
+  knapp(t('kollega.aldrigOmDetta'), () => svara('aldrig', t('kollega.aldrigKvitto')));
+  knapp(t('kollega.stangAv'), () => svara('stang', t('kollega.avstangdKvitto')));
+  n.append(oppna, val);
+  lada.append(n);
+  post('/api/kollega/knack', { id: k.id, svar: 'visad' }).catch(() => {});
+}
+
+/// Frågan som ett kort samtal i bankens vy: det du skriver är ett svar, och
+/// det som ska ändras i /du visas före och efter, med samma ja som där.
+async function oppnaKnack(k) {
+  tillSamtalet(); nySession();
+  manus.rader = []; manus.session = null;
+  manus.duVy = true;
+  manus.knack = { id: k.id };
+  await maximusSager(k.halsning);
+  maximusSager(t('kollega.knackOm'));
+}
+
+async function svaraKnack(text) {
+  const id = manus.knack.id;
+  maximusSager(t('banken.lasar'));
+  const r = await post('/api/kollega/knack/svar', { id, text }).catch(e => ({ error: e.message, borta: true }));
+  if (r.borta) manus.knack = null;
+  if (r.error && !r.forslag) return maximusSager(r.error, { fel: true });
+  if (r.forslag) await godkannBanken(r.forslag);
+  else if (r.svar) await maximusSager(r.svar);
+  if (r.foljd) return maximusSager(r.foljd);
+  manus.knack = null;
+  post('/api/kollega/knack', { id, svar: 'klar' }).catch(() => {});
+  maximusSager(t('kollega.knackTack'));
+}
+
+/// Fönstret säger om det står i vila, och att det finns. Utan livstecken
+/// räknar servern det som i vila — en stängd flik ska inte få en knack.
+function narvaro() {
+  post('/api/kollega/narvaro', { vila: Boolean(vilar || notisSkymd() || document.hidden) }).catch(() => {});
+}
+setInterval(narvaro, 60_000);
+document.addEventListener('visibilitychange', narvaro);
+
 // ── Dokument och presentationer (Fas 23) ─────────────────────────────────
 //
 // Ett arbete i samtalet: mål, mottagare och längd → en disposition du
@@ -9228,6 +9837,52 @@ function ritaLeveransLive(mitt) {
 const VERKTYGSNAMN = () => ({ webbsok: t('verktyg.webbsok'), las_sida: t('verktyg.lasSida'), las_fil: t('verktyg.lasFil'), mapp: t('verktyg.mapp'), mejl: t('verktyg.mejl'),
   kalender: t('verktyg.kalender'), anteckningar: t('verktyg.anteckningar'), vagval: t('verktyg.vagval'), rakna: t('verktyg.rakna') });
 
+// ── Banken: /du ───────────────────────────────────────────────────────────
+//
+// Auro 2026-10-10: "Det måste finnas någonstans där vi kan läsa, se eller få
+// insikt i banken, alltså vad Maximus vet om mig." Tabellen skrivs av
+// servern ur fälten, med varifrån varje uppgift kommer (lib/banken.mjs);
+// modellen får lägga en kort mening ovanpå, aldrig en egen uppgift.
+
+/// Vad Maximus vet om dig, och en vy där det du skriver rättar det.
+async function visaBanken() {
+  tillSamtalet(); nySession();
+  manus.rader = []; manus.session = null;
+  manus.duVy = true;
+  const d = await hamta('/api/du/banken');
+  await maximusSager(d.text);
+  // Den korta meningen kommer när modellen hunnit, om den är igång. Står
+  // du kvar i vyn läggs den till; har du gått vidare gör den det inte.
+  if (d.uppgifter?.some(r => r.andras)) {
+    post('/api/du/banken/sammanfatta', {}).then(r => {
+      if (r?.text && manus.duVy && !stat.aktiv) maximusSager(t('banken.kortSagt', { text: r.text }));
+    }).catch(() => {});
+  }
+}
+
+/// Det du skrev, som ett förslag: exakt vad som ändras, före och efter.
+/// Ändras först när du sagt ja — samma knappar som andra godkännanden.
+async function rattaBanken(text) {
+  maximusSager(t('banken.lasar'));
+  const r = await post('/api/du/banken/tolka', { text }).catch(e => ({ error: e.message }));
+  if (r.error) return maximusSager(r.error, { fel: true });
+  if (!r.forslag) return maximusSager(r.svar || t('banken.inget'));
+  return godkannBanken(r.forslag);
+}
+
+/// Förslaget före och efter, och ditt ja. Samma för en rättelse i /du och
+/// för ett svar på en knack-knack.
+async function godkannBanken(forslag) {
+  const v = await maximusFragar(forslag.text, [{ id: 'ja', text: t('banken.andra') }, { id: 'nej', text: t('allmant.avbryt') }]);
+  const g = await post('/api/du/banken/godkann', { id: forslag.id, ja: v === 'ja' }).catch(e => ({ error: e.message }));
+  if (g.error) return maximusSager(g.error, { fel: true });
+  if (g.avbrutet) return maximusSager(t('banken.inget'));
+  // Gränssnittets kopia av profilen följer med, så att en sparning i
+  // inställningarna inte skriver tillbaka det som just togs bort.
+  installningar = { ...installningar, profil: g.profil };
+  maximusSager(`${t('banken.klart', { n: g.andringar })}\n\n${g.text}`);
+}
+
 // ── Kommandon ─────────────────────────────────────────────────────────────
 //
 // Det som var rum blir något man skriver. Ett kommando svarar i chatten,
@@ -9240,6 +9895,9 @@ const KOMMANDON = {
   '/dokument': rest => leverera('dokument', rest),
   '/djupdykning': rest => djupdyk(rest),
   '/rundtur': () => startaRundtur(),
+  // Banken (2026-10-10): vad Maximus vet om dig. Det du skriver i vyn efteråt
+  // rättar banken i stället för att gå till modellen (se skicka).
+  '/du': () => visaBanken(),
   '/help': async () => {
     const f = await hamta('/api/funktioner');
     maximusSager(t('kommando.helpTips', { tabell: f.tabell }));
@@ -9249,7 +9907,12 @@ const KOMMANDON = {
   '/post': async () => {
     const a = await harTillstand('epost');
     if (!a) return;
-    const { konto, lada = 'INBOX' } = a.epost;
+    // Flera konton och lådor (2026-10-10): vilken, när det finns fler än en.
+    const ladorna = epostKontonAv(a.epost).flatMap(k => k.lador.map(l => ({ konto: k.konto, lada: l, etikett: k.etikett })));
+    if (!ladorna.length) return;
+    const valt = ladorna.length === 1 ? 0 : Number(await maximusFragar(t('post.vilkenLada'),
+      ladorna.slice(0, 10).map((x, i) => ({ id: String(i), text: `${x.konto} · ${x.lada === 'INBOX' ? t('post.varInkorgen') : x.lada} (${etikettNamn(x.etikett)})` }))));
+    const { konto, lada } = ladorna[valt] || ladorna[0];
     const var_ = t('post.varInkorgen2', { lada: lada === 'INBOX' ? t('post.varInkorgen') : lada, konto });
     const r = await hamta(`/api/post/brev?konto=${encodeURIComponent(konto)}&lada=${encodeURIComponent(lada)}&antal=10`);
     if (r.fel) return maximusSager(t('post.komInteAt', { fel: r.fel }), { fel: true });
@@ -9401,16 +10064,22 @@ const KOMMANDON = {
   // vad senaste varvet gjorde. Rummet var enda vägen dit (Fas 13); utan den
   // här vore det undanlagda frånvarande ur inkorgen, inte bara ur
   // översikten, och ett tyst varv osynligt.
-  '/fynd': async () => {
-    const r = await fetch('/api/agent');
+  // Med en etikett (2026-10-10): "/fynd jobb" visar bara jobbets fynd.
+  '/fynd': async rest => {
+    const kod = etikettKod(rest);
+    const r = await fetch(`/api/agent${kod ? `?etikett=${encodeURIComponent(kod)}` : ''}`);
     const d = await r.json();
     const u = await hamta('/api/agent/undanlagt').catch(() => ({ undanlagt: [] }));
     const sp = await hamta('/api/agent/spar').catch(() => ({ spar: [] }));
     const titel = id => d.uppdrag.find(x => x.id === id)?.titel || '';
     const delar = [];
+    // Sfären som egen kolumn när fynden bär en; filtret som knappar under.
+    const medSfar = d.fynd.some(f => f.sfar);
+    if (kod) delar.push(t('fynd.bara', { etikett: etikettNamn(kod) }));
     delar.push(d.fynd.length
       ? t('fynd.antal', { n: d.fynd.length }) + (d.osedda ? ', ' + t('fynd.olasta', { n: d.osedda }) : '') + ':\n\n'
-        + tabellAv([t('fynd.tabellKolumner4'), t('fynd.tabellKolumner3'), t('fynd.tabellKolumner2'), t('fynd.tabellKolumner')], d.fynd.slice(0, 15).map(f => [`${'•'.repeat(f.vikt || 1)} ${f.titel}`, titel(f.uppdrag), f.varfor || '', nar(f.skapad)]))
+        + tabellAv([t('fynd.tabellKolumner4'), ...(medSfar ? [t('fynd.kolumnEtikett')] : []), t('fynd.tabellKolumner3'), t('fynd.tabellKolumner2'), t('fynd.tabellKolumner')],
+          d.fynd.slice(0, 15).map(f => [`${'•'.repeat(f.vikt || 1)} ${f.titel}`, ...(medSfar ? [f.sfar ? etikettNamn(f.sfar) : '—'] : []), titel(f.uppdrag), f.varfor || '', nar(f.skapad)]))
       : t('fynd.ingetAn'));
     delar.push(u.undanlagt.length
       ? `${t('uppdrag.lagtAtSidan', { n: u.undanlagt.length })}:\n\n`
@@ -9419,9 +10088,14 @@ const KOMMANDON = {
     const sist = sp.spar[0];
     if (sist) delar.push(`${t('fynd.senasteVarvet', { nar: nar(sist.nar) })}${sist.ganger > 1 ? ` ${t('fynd.likadant', { n: sist.ganger })}` : ''}: `
       + sist.varv.map(v => `${v.titel}: ${v.fel || v.skal || t('fynd.varvResultat', { fynd: v.fynd, undan: v.undan })}`).join(' · '));
+    const etiketterna = [...new Set([...(d.lage?.etiketter || []), ...d.fynd.map(f => f.sfar).filter(Boolean)])].filter(e => e !== kod);
     const v = await maximusFragar(delar.join('\n\n'), [
       ...(d.osedda ? [{ id: 'sett', text: t('fynd.alltLast') }] : []),
+      ...etiketterna.slice(0, 6).map(e => ({ id: `etikett:${e}`, text: t('fynd.baraKnapp', { etikett: etikettNamn(e) }) })),
+      ...(kod ? [{ id: 'alla', text: t('fynd.allaEtiketter') }] : []),
       { id: 'sla', text: t('fynd.tittaEfterNu') }, { id: 'klart', text: t('allmant.klart') }]);
+    if (v.startsWith('etikett:')) return KOMMANDON['/fynd'](v.slice(8));
+    if (v === 'alla') return KOMMANDON['/fynd']('');
     if (v === 'sett') { await post('/api/agent/allt-sett', {}); maximusSager(t('fynd.alltMarkerat')); }
     if (v === 'sla') {
       maximusSager(t('fynd.tittar'));
@@ -9518,7 +10192,7 @@ async function harTillstand(id) {
     await sparaAgent({ sidor: true });
     return installningar.agent;
   }
-  const pa = id === 'epost' ? a.epost?.konto : id === 'kalender' ? a.kalender
+  const pa = id === 'epost' ? epostKontonAv(a.epost).length : id === 'kalender' ? a.kalender
     : id === 'meddelanden' ? a.meddelanden : id === 'paminnelser' ? a.paminnelser : id === 'samtal' ? a.samtal : id === 'mapp' ? a.mapp?.sokvag : a.anteckningar?.mapp;
   if (pa) return a;
   const tt = (await hamta('/api/tillstand')).tillstand.find(x => x.id === id);
@@ -9611,7 +10285,9 @@ function tabellAv(huvud, rader) {
 const KOMMANDO_ALIAS = {
   '/mail': '/post', '/calendar': '/kalender', '/watch': '/bevakning', '/tasks': '/uppdrag', '/finds': '/fynd',
   '/record': '/spela', '/clear': '/rensa', '/settings': '/installningar', '/document': '/dokument',
-  '/deepdive': '/djupdykning', '/tour': '/rundtur',
+  // /you är ett andra namn för /du (Auro 2026-10-10); /me står först i
+  // listan som visas, därför sist här.
+  '/deepdive': '/djupdykning', '/tour': '/rundtur', '/you': '/du', '/me': '/du',
 };
 const KOMMANDO_ENGELSKA = Object.fromEntries(Object.entries(KOMMANDO_ALIAS).map(([en, sv]) => [sv, en]));
 /// Kommandot som det skrivs på det valda språket: /post blir /mail på engelska.
@@ -9811,6 +10487,23 @@ function maximusFragar(text, val, { under } = {}) {
   }));
 }
 
+/// Ett konto i chatten (2026-10-10): ja med en etikett, eller nej. Förvalet
+/// står först när det är uppenbart (iCloud privat, en egen domän jobb);
+/// annars föreslår knapparna ingenting. Svaret: etiketten, null (ja utan
+/// etikett) eller undefined (nej).
+async function fragaEtikett(fraga, forval) {
+  const ordning = forval === 'jobb' ? ['jobb', 'privat'] : ['privat', 'jobb'];
+  const v = await maximusFragar(fraga, [
+    ...ordning.map(e => ({ id: e, text: forval === e ? t('tillstand.jaSomForval', { etikett: etikettNamn(e) }) : t('tillstand.jaSom', { etikett: etikettNamn(e) }) })),
+    { id: 'egen', text: t('tillstand.jaEgen') },
+    { id: 'nej', text: t('allmant.nej') },
+  ]);
+  if (v === 'nej') return undefined;
+  if (v !== 'egen') return v;
+  const e = await fragaOm(t('tillstand.egenEtikett'), { om: t('tillstand.egenEtikettOm') });
+  return e ? e.slice(0, 40) : null;
+}
+
 /// Frågar om ETT tillstånd, i chatten, och sparar beslutet med sitt skäl.
 ///
 /// Frågan och skälen kommer ur lib/tillstand.mjs via servern — en källa.
@@ -9895,10 +10588,23 @@ ${tt.fraga}`, [...JA_NEJ(), ...(hoppa ? [{ id: 'hoppa', text: t('forsta.hoppaOve
       maximusSager(t('tillstand.komInteAtApp', { app: kalla[2], fel: r.fel, namn: tt.namn }), { fel: true });
       return null;
     }
+    // Flera konton (2026-10-10): ett i taget, ja med etikett eller nej.
     if (tt.behover === 'konto') {
       if (!lista.length) { maximusSager(t('tillstand.ingetKonto', { namn: tt.namn }), { fel: true }); return null; }
-      d.konto = lista.length === 1 ? lista[0].namn
-        : await maximusFragar(t('tillstand.vilketKonto'), lista.slice(0, 8).map(k => ({ id: k.namn, text: k.adress ? `${k.namn} · ${k.adress}` : k.namn })));
+      const konton = [];
+      for (const k of lista.slice(0, 8)) {
+        const namn = k.adress ? `${k.namn} · ${k.adress}` : k.namn;
+        const e = await fragaEtikett(lista.length === 1 ? t('tillstand.kontoEtt', { konto: namn }) : t('tillstand.kontoFraga', { konto: namn }), k.forval || null);
+        if (e !== undefined) konton.push({ konto: k.namn, lador: ['INBOX'], etikett: e });
+      }
+      if (!konton.length) { maximusSager(t('tillstand.starKvarSomAv', { namn: tt.namn })); return null; }
+      d.konton = konton;
+    }
+    // Kalendrarna: alla som förut, eller de du väljer, med etikett.
+    if (tt.id === 'kalender' && lista.length > 1) {
+      const v = await maximusFragar(t('tillstand.vilkaKalendrar', { n: lista.length }),
+        [{ id: 'valj', text: t('tillstand.valjKalendrar') }, { id: 'alla', text: t('tillstand.allaKalendrar') }]);
+      if (v === 'valj') { const val = await valjKalendrar({ lista }); if (val) d.kalendrar = val.kalendrar; }
     }
     if (tt.behover === 'mapp') {
       if (!lista.length) { maximusSager(t('tillstand.ingenMapp', { namn: tt.namn }), { fel: true }); return null; }
@@ -10874,6 +11580,8 @@ $('#komp').addEventListener('submit', e => {
   // I ett uppdrags vy hör texten till uppdraget — och valen på skärmen
   // måste finnas kvar för att kunna väljas (se skicka).
   if (manus.uppdragVy && !manus.session) return skicka(tt);
+  // Bankens vy (/du) likadant: tabellen och knapparna står kvar.
+  if (manus.duVy && !manus.session && !stat.aktiv) return skicka(tt);
   // Efter manuset är nästa fråga ett vanligt samtal.
   manus.pagar = false;
   manus.rader = []; manus.session = null;
@@ -10960,6 +11668,7 @@ function oppningsvila(last) {
 async function vila() {
   if (vilar || $('#vila').dataset.last) return;
   vilar = true;
+  narvaro();
   // Motorn pausas också (Auro 2026-10-04: "dubbel esc/logo tap = borde
   // pausa motorn per automatik"). Pausad ligger den kvar i minnet.
   if (strommen() === 'pa' && !insp.rec && !stat.arbetar) { pausadAvVila = true; stromVal('paus'); }
@@ -11010,6 +11719,7 @@ async function vakna() {
   const v = $('#vila');
   const stang = () => {
     vilar = false;
+    setTimeout(narvaro, 400);
     delete v.dataset.vaknar;
     for (const n of document.body.children) n.inert = false;
     v.classList.add('ut');
@@ -11571,7 +12281,17 @@ function malaMeny() {
       n.append(b);
     }
   };
-  rita($('#meny-beh'), behandlingar(), stat.behandling, id => satVal({ behandling: id }, true));
+  // Behandlingen bara när en molnmodell svarar (Auro 2026-10-10). Lokalt står
+  // en statusrad i dess ställe: vart texten går, och hur man ber om en mask.
+  const moln = behGaller();
+  $('#meny-beh-rubrik').hidden = !moln;
+  $('#meny-beh').hidden = !moln;
+  $('#meny-lokalt').hidden = moln;
+  if (moln) rita($('#meny-beh'), behandlingar(), stat.behandling, id => satVal({ behandling: id }, true));
+  else {
+    $('#meny-beh').textContent = '';
+    $('#meny-lokalt-text').textContent = (installningar.webb || 'auto') === 'av' ? t('lage.lokaltStatus') : t('lage.lokaltStatusWebb');
+  }
   rita($('#meny-webb'), WEBBVAL(), installningar.webb || 'auto', satWebb);
   rita($('#meny-minne'), MINNESVAL(), stat.minne, satMinne);
 }
@@ -11664,7 +12384,9 @@ function malaLageKnapp() {
   // och ett märke säger ja eller nej fortare än ett ord. Hela meningen står
   // i knappens title och i menyn.
   const w = installningar.webb || 'auto';
-  $('#lage-namn').textContent = beh().namn || '—';
+  // Lokalt: knappen säger Lokalt, inte ett val som inte gäller (2026-10-10).
+  const moln = behGaller();
+  $('#lage-namn').textContent = moln ? beh().namn || '—' : t('lage.lokalt');
   const m = $('#lage-webb');
   if (m) {
     m.dataset.webb = w;
@@ -11672,8 +12394,11 @@ function malaLageKnapp() {
     m.hidden = w === 'av';
     m.title = { pa: t('lage.webbsokAlltid'), auto: t('lage.webbsokNarKravs') }[w] || '';
   }
-  $('#lage-knapp').title = t('lage.knappTitel', { namn: beh().namn, webb: { pa: t('lage.webbAlltid'), av: t('allmant.avGemen') }[w] || t('lage.webbNarKravs') });
-  $('#lagesval').dataset.behandling = stat.behandling;
+  const webbOrd = { pa: t('lage.webbAlltid'), av: t('allmant.avGemen') }[w] || t('lage.webbNarKravs');
+  $('#lage-knapp').title = moln
+    ? t('lage.knappTitelMoln', { namn: beh().namn, webb: webbOrd, moln: upp.moln?.namn || t('moln.standardnamn') })
+    : t('lage.knappTitelLokalt', { webb: webbOrd });
+  $('#lagesval').dataset.behandling = moln ? stat.behandling : 'lokalt';
   const mm = $('#lage-minne');
   // Minnet syns alltid, också förvalet. Det stod bara ute när det inte var
   // isolerat, och då gick det inte att se vilket minne ett samtal hade —
@@ -12446,6 +13171,8 @@ for (const d of document.querySelectorAll('dialog')) d.addEventListener('click',
   if (e.target === d) d.close();
 });
 
+// Närvaron (knack-knack, 2026-10-10) en gång strax efter start; sedan varje minut.
+setTimeout(narvaro, 2000);
 new EventSource('/api/handelser').onmessage = e => {
   const h = JSON.parse(e.data);
   if (h.typ === 'lista') laddaLista();
@@ -12463,6 +13190,8 @@ new EventSource('/api/handelser').onmessage = e => {
     try { upp.moln = h.pa ? { pa: true, namn: h.namn } : null; } catch { /* före uppstarten: läses där */ }
     molnVantar?.(h);
     if (vyn === 'installningar') ritaMoln();
+    // Valet i skrivfältet följer vart texten går, direkt (2026-10-10).
+    visaLage();
     rita();
   }
   else if (h.typ === 'notis') {
@@ -12492,6 +13221,17 @@ new EventSource('/api/handelser').onmessage = e => {
   else if (h.typ === 'hamtning') visaHamtning(h);
   else if (h.typ === 'start') { if (h.vem === 'tanker' && typeof h.andel === 'number') modellAndel = h.andel; startHandelse?.(h); }
   else if (h.typ === 'fyndsamtal') visaFyndsamtal(h);
+  // Knack-knack (2026-10-10): bara om ingenting skymmer, se visaKnack.
+  else if (h.typ === 'knack') visaKnack(h.knack);
+  // Ett förslag som besvarats någon annanstans.
+  else if (h.typ === 'kollega') {
+    const tt = stat.session?.turer?.find(x => x.kollega?.forslag?.some(f => f.id === h.forslag.id));
+    if (tt) {
+      const i = tt.kollega.forslag.findIndex(f => f.id === h.forslag.id);
+      tt.kollega.forslag[i] = { ...tt.kollega.forslag[i], ...h.forslag, nr: tt.kollega.forslag[i].nr };
+      document.querySelector(`[data-kollega="${CSS.escape(h.forslag.id)}"]`)?.replaceWith(ritaKollegaForslag(tt.kollega.forslag[i], tt));
+    }
+  }
   else if (h.typ === 'webblasare') {
     const om = $('#inst-webblasare-om');
     if (om && vyn === 'installningar') om.textContent = h.fel || h.text || (h.klar ? h.namn : om.textContent);
@@ -12594,6 +13334,7 @@ if (!last && !installningar.modellval) {
 borjaKlar();
 if (!last) {
   await startaForsta();
+  appPlatsRuta();
   await laddaLista();
   // Motorvalet och agentrummet är borta (Fas 13). Agenten arbetar i
   // glappen och öppnar samtal när den hittat något (Fas 12); kapaciteten

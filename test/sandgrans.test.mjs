@@ -66,7 +66,8 @@ test('servern förbereder själv och litar inte på klientens objekt', async () 
 
   const start = kod.indexOf('const val = Behandling.vad(');
   assert.ok(start > 0, 'hittade inte sändvägen');
-  const skicka = kod.slice(start, kod.indexOf('const tur = { id: randomUUID()'));
+  // Från sändvägens början: maskeraPaBegaran() längre upp bygger också en tur.
+  const skicka = kod.slice(start, kod.indexOf('const tur = { id: randomUUID()', start));
 
   // Klienten får inte avgöra vad som händer med texten.
   assert.ok(!/kropp\.lokalt/.test(skicka), 'klienten avgör fortfarande destinationen');

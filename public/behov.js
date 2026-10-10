@@ -13,7 +13,8 @@
 /// Källorna agenten kan få läsa, som de står i `installningar.agent`.
 /// Samma prov som lasKalla() i server.mjs gör innan den läser.
 export const KALLOR = {
-  epost: a => Boolean(a.epost?.konto),
+  // Flera konton (2026-10-10): ett räcker, i den gamla formen eller den nya.
+  epost: a => Boolean(a.epost?.konto || (Array.isArray(a.epost?.konton) && a.epost.konton.some(k => String(k?.konto || '').trim()))),
   kalender: a => Boolean(a.kalender),
   paminnelser: a => Boolean(a.paminnelser),
   anteckningar: a => Boolean(a.anteckningar?.mapp),

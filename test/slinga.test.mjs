@@ -60,3 +60,27 @@ test('ett svar får inte påstå en handling som inte finns', () => {
   assert.equal(arligtSvar('Du har inga möten.', []), 'Du har inga möten.');
   assert.match(iDag(new Date('2026-10-05T12:00:00')), /måndag 5 oktober 2026.*2026-10-05/);
 });
+
+// Prov med riktiga Gemma (v-gemma, 2026-10-11): "Jag hittade
+// Kravspecifikation_AI_tjänster.pdf … Svaret bygger på verktyget mapp" —
+// utan att något verktyg körts.
+test('ett svar som säger att det bygger på ett verktyg som aldrig kördes får rätta sig en gång', async () => {
+  const { pastaddaVerktyg } = await import('../lib/slinga.mjs');
+  assert.deepEqual(pastaddaVerktyg('Jag hittade filen.\n\nSvaret bygger på verktyget `mapp`.', ['mapp', 'mejl']), ['mapp']);
+  assert.deepEqual(pastaddaVerktyg('Verktyg som använts: las_underlag (kort 1).', ['las_underlag']), ['las_underlag']);
+  assert.deepEqual(pastaddaVerktyg('Tools used: mejl, kalender', ['mejl', 'kalender']), ['mejl', 'kalender']);
+  assert.deepEqual(pastaddaVerktyg('Avtalet ligger i mappen och mejlet kom i går.', ['mapp', 'mejl']), [], 'vanliga ord');
+  const svar = ['Jag hittade Kravspecifikation.pdf. Svaret bygger på verktyget `mapp`.', '', 'Jag har inte läst mappen; underlaget säger inget om bilagan.'];
+  const sett = [];
+  let i = 0;
+  const r = await slinga({ uppgift: 'Finns bilagan?', verktyg: [{ namn: 'mapp', om: 'x', kor: async () => 'inga filer' }],
+    anropa: async ({ meddelanden }) => { sett.push(meddelanden.at(-1).content); return { text: svar[i++] ?? '', anrop: [] }; } });
+  assert.match(sett[1], /inte använt mapp/);
+  assert.equal(r.svar, 'Jag har inte läst mappen; underlaget säger inget om bilagan.');
+  assert.ok(!/Kravspecifikation\.pdf/.test(r.svar), r.svar);
+  // Ett riktigt anrop: inget att rätta.
+  let j = 0;
+  const r2 = await slinga({ uppgift: 'Finns bilagan?', verktyg: [{ namn: 'mapp', om: 'x', kor: async () => 'inga filer' }],
+    anropa: async () => (j++ === 0 ? { text: '', anrop: [{ id: '1', namn: 'mapp', argument: '{}' }] } : { text: 'Inga filer. Verktyg: `mapp`.', anrop: [] }) });
+  assert.equal(r2.svar, 'Inga filer. Verktyg: `mapp`.');
+});

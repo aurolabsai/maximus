@@ -102,7 +102,16 @@ function lista(rader) {
   let öppen = null, inre = false;
   for (const rad of rader) {
     const m = /^(\s*)(?:([-*+])|(\d+)[.)])\s+(.*)$/.exec(rad);
-    if (!m) { if (ut.length) ut[ut.length - 1] += '<br>' + inline(rad.trim()); continue; }
+    // En fortsättningsrad hör till punkten ovanför: inuti den, inte efter
+    // </li> (där blev <br> en tom rad mellan punkterna; agentens lista med
+    // skäl under varje fynd, punkt 10, 2026-10-10).
+    if (!m) {
+      if (ut.length) {
+        const sista = ut[ut.length - 1];
+        ut[ut.length - 1] = sista.endsWith('</li>') ? `${sista.slice(0, -5)}<br>${inline(rad.trim())}</li>` : `${sista}<br>${inline(rad.trim())}`;
+      }
+      continue;
+    }
     const [, indrag, punkt, , text] = m;
     const sort = punkt ? 'ul' : 'ol';
     const nästlad = indrag.length >= 2;

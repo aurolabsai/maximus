@@ -24,6 +24,24 @@
  "bevakning.morgonArenden": " — det rör {antal} av dina ärenden.",
  "bevakning.paragraf": "{p} §",
  "bevakning.tva": "två",
+ "bifogat.beskuret": "{stycken} av {av} stycken, valda mot frågan; resten med las_underlag",
+ "bifogat.ingenText": "(ingen text att läsa, bara rubriken)",
+ "bifogat.ref.anteckning": "en anteckning i Anteckningar",
+ "bifogat.ref.bevakning": "en bevakning",
+ "bifogat.ref.fil": "filen {sokvag}",
+ "bifogat.ref.flode": "ett inlägg i LinkedIn-flödet",
+ "bifogat.ref.kalender": "en post i kalendern",
+ "bifogat.ref.meddelande": "ett meddelande",
+ "bifogat.ref.mejl": "ett mejl i {konto}, låda {lada}",
+ "bifogat.ref.okand": "okänd källa",
+ "bifogat.ref.paminnelse": "en påminnelse",
+ "bifogat.ref.samtal": "ett samtal i samtalslistan",
+ "bifogat.ref.sida": "sidan {url}",
+ "bifogat.rubrik": {
+  "en": "Underlaget agenten bifogade (ett kort). Det är det samtalet gäller; läs det innan du svarar. Hela originalet läses med las_underlag och kortets nummer.",
+  "flera": "Underlaget agenten bifogade ({n} kort). Det är det samtalet gäller; läs det innan du svarar. Hela originalet läses med las_underlag och kortets nummer."
+ },
+ "bifogat.utelamnad": "Texten utelämnad: den försökte styra modellen.",
  "bollen.fortsatter": "Jag fortsätter: {vad}.",
  "dela.andrad": "Filen har ändrats efter att den packades: avsändare eller datum stämmer inte med innehållet.",
  "dela.felKod": "Fel kod.",
@@ -54,6 +72,113 @@
  "krypto.kodSaknas": "Kod saknas.",
  "krypto.losenordSaknas": "Lösenord saknas.",
  "krypto.nyckel32": "Nyckeln måste vara 32 byte.",
+ "lib.banken.antal": {
+  "en": "{n} st.",
+  "flera": "{n} st."
+ },
+ "lib.banken.etikett.arbetar": "Arbetar med",
+ "lib.banken.etikett.bransch": "Bransch",
+ "lib.banken.etikett.egen": "Med egna ord",
+ "lib.banken.etikett.exempel": "Exemplen som skrevs om efter dig",
+ "lib.banken.etikett.fakta": "Tillagt",
+ "lib.banken.etikett.inlagg": "Egna inlägg",
+ "lib.banken.etikett.intressen": "Intresserad av",
+ "lib.banken.etikett.kommentarer": "Egna kommentarer",
+ "lib.banken.etikett.kompetens": "Kompetens",
+ "lib.banken.etikett.kompetenser": "Kompetenser",
+ "lib.banken.etikett.minne": "Minnet",
+ "lib.banken.etikett.namn": "Namn",
+ "lib.banken.etikett.ort": "Ort",
+ "lib.banken.etikett.reaktioner": "Reaktioner",
+ "lib.banken.etikett.roll": "Roll",
+ "lib.banken.etikett.rubrik": "Rubrik",
+ "lib.banken.etikett.sammanfattning": "Sammanfattning",
+ "lib.banken.etikett.text": "Texten ur underlaget",
+ "lib.banken.etikett.uppdrag": "Uppdrag",
+ "lib.banken.etikett.utbildning": "Utbildning",
+ "lib.banken.etikett.vem": "Vem",
+ "lib.banken.etikett.vill": "Vill uppnå",
+ "lib.banken.exempelFore": "omskrivna efter dig",
+ "lib.banken.forslagRubrik": {
+  "en": "Så här ändras banken, {n} ändring. Inget är ändrat än.",
+  "flera": "Så här ändras banken, {n} ändringar. Inget är ändrat än."
+ },
+ "lib.banken.gor.andra": "Ändra",
+ "lib.banken.gor.bort": "Ta bort",
+ "lib.banken.gor.lagg": "Lägg till",
+ "lib.banken.grupp.arbete": "Vad du arbetar med",
+ "lib.banken.grupp.bevakar": "Vad agenten bevakar åt dig, och varför",
+ "lib.banken.grupp.intressen": "Vad som intresserar dig",
+ "lib.banken.grupp.minne": "Samtalen",
+ "lib.banken.grupp.tillagt": "Det du lagt till här",
+ "lib.banken.grupp.underlag": "Underlaget",
+ "lib.banken.grupp.vem": "Vem du är",
+ "lib.banken.kalla.cv": "ditt cv",
+ "lib.banken.kalla.du": "du själv",
+ "lib.banken.kalla.duNar": "du själv, {nar}",
+ "lib.banken.kalla.forslag": "{kalla}, ett förslag du sagt ja till",
+ "lib.banken.kalla.lank": "en länk du gav",
+ "lib.banken.kalla.linkedin": "LinkedIn",
+ "lib.banken.kalla.profil": "din profil (du skrev eller godkände den)",
+ "lib.banken.kalla.safari": "profilsidan i Safari",
+ "lib.banken.kalla.samtal": "samtal du låtit mig minnas",
+ "lib.banken.kalla.uppdrag": "uppdraget {namn}, med dina ord",
+ "lib.banken.kolumn.kalla": "Varifrån",
+ "lib.banken.kolumn.uppgift": "Uppgift",
+ "lib.banken.lager.fynd": {
+  "en": "{n} fynd",
+  "flera": "{n} fynd"
+ },
+ "lib.banken.lager.handlingar": {
+  "en": "{n} handling",
+  "flera": "{n} handlingar"
+ },
+ "lib.banken.lager.kollega": {
+  "en": "{n} post i kollegans minne (förslag, ditt svar eller en fråga)",
+  "flera": "{n} poster i kollegans minne (förslag, dina svar och frågor)"
+ },
+ "lib.banken.lager.spar": {
+  "en": "{n} rad i agentens spår",
+  "flera": "{n} rader i agentens spår"
+ },
+ "lib.banken.lager.svarsforslag": {
+  "en": "{n} svarsförslag",
+  "flera": "{n} svarsförslag"
+ },
+ "lib.banken.lager.telefon": {
+  "en": "{n} rad om det som gick till telefonen",
+  "flera": "{n} rader om det som gick till telefonen"
+ },
+ "lib.banken.lager.undanlagt": {
+  "en": "{n} post agenten lagt åt sidan",
+  "flera": "{n} poster agenten lagt åt sidan"
+ },
+ "lib.banken.lagerRubrik": "Ur det agenten själv sparat om dig:",
+ "lib.banken.liggare": "Banken ändrad i /du: {lagg} tillagda, {andra} ändrade, {bort} borttagna ({id})",
+ "lib.banken.liggareLager": "ur agentens lager: {lager}",
+ "lib.banken.minns": {
+  "en": "{n} samtal som jag minns mellan samtal",
+  "flera": "{n} samtal som jag minns mellan samtal"
+ },
+ "lib.banken.nu": "nu",
+ "lib.banken.ovrigt.samtal": {
+  "en": "{om} nämns också i {n} samtal. Dem rör jag inte här; ta bort samtalet i listan om det ska bort.",
+  "flera": "{om} nämns också i {n} samtal. Dem rör jag inte här; ta bort samtalen i listan om de ska bort."
+ },
+ "lib.banken.ovrigt.uppdrag": "Det står också i uppdraget {namn}. Ändra det under /uppdrag.",
+ "lib.banken.ovrigtRubrik": "Det här ändras inte här:",
+ "lib.banken.rattaSaHar": "Stämmer något inte? Skriv det här, som till en kollega: \"jag har slutat på X\", \"lägg till att jag sitter i styrelsen för Y\", \"ta bort nr 4\" eller \"glöm allt om Z\". Jag visar exakt vad som ändras, och ändrar först när du säger ja.",
+ "lib.banken.roll": "{titel} på {org} {tid}",
+ "lib.banken.somNamner": {
+  "en": "{n} som nämner {om}",
+  "flera": "{n} som nämner {om}"
+ },
+ "lib.banken.tecken": {
+  "en": "{n} tecken",
+  "flera": "{n} tecken"
+ },
+ "lib.banken.tom": "Jag vet ingenting om dig än. Berätta vem du är och vad du arbetar med här, eller läs in LinkedIn-exporten eller ett cv under Inställningar → Du.",
+ "lib.banken.vagsMot": "Allt agenten hittar vägs mot det du vill uppnå: {vill}",
  "mallar.delForStor": "En del av mallen ({del}) är för stor.",
  "mallar.forMangaDelar": "Mallen har för många delar för att vara en mall.",
  "mallar.forStorUppackad": "Mallen är för stor uppackad.",
@@ -103,11 +228,19 @@
  "projekt.aktor": "Projektet",
  "projekt.kvitto": "läste {lista} — {tecken} tecken följde med frågan",
  "projekt.lista": "{forra} och {sista}",
+ "sammanstallning.fragan": {
+  "en": "Agenten läste en ny post för {titel}. Här är sammanställningen.",
+  "flera": "Agenten läste {n} nya poster för {titel}. Här är sammanställningen."
+ },
+ "sammanstallning.kallor": "Källor",
+ "sammanstallning.ovrigt": "Övrigt",
+ "sammanstallning.varfor": "Varför det angår dig:",
+ "svar.fel.avsandare": "Mail ville skicka svaret från en annan adress än kontot {konto}. Ingenting skickades.",
+ "svar.fel.mailSvaradeInte": "Mail bekräftade inte att svaret gick iväg. Kontrollera Utkorgen i Mail; texten ligger kvar här.",
+ "svar.fel.mottagare": "Mail ville svara till en annan adress än den som visades. Ingenting skickades.",
+ "svar.fel.ofullstandigt": "Svaret saknar mottagare, brev eller text.",
  "uppdatering.nyttolast": "GET uppdateringsmanifest · version {version} · plattform {plats}",
  "uppdatering.servern": "uppdateringsservern",
  "uppdatering.svarade": "servern svarade {status}",
- "zip.inteZip": "Filen är inte en zip.",
- "svar.fel.ofullstandigt": "Svaret saknar mottagare, brev eller text.",
- "svar.fel.mailSvaradeInte": "Mail bekräftade inte att svaret gick iväg. Kontrollera Utkorgen i Mail; texten ligger kvar här.",
- "svar.fel.mottagare": "Mail ville svara till en annan adress än den som visades. Ingenting skickades."
+ "zip.inteZip": "Filen är inte en zip."
 }

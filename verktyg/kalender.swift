@@ -89,7 +89,9 @@ func avRymd(_ s: String) -> String {
 let kalendrar = store.calendars(for: .event)
 
 if vad == "kalendrar" {
-    ut(kalendrar.map { ["namn": avRymd($0.title), "id": $0.calendarIdentifier] })
+    // Kontot kalendern ligger i (2026-10-10): "iCloud", "Google" eller en
+    // adress. Förvalet för etiketten läses ur det — se lib/konton.mjs.
+    ut(kalendrar.map { ["namn": avRymd($0.title), "id": $0.calendarIdentifier, "konto": avRymd($0.source?.title ?? "")] })
     exit(0)
 }
 
@@ -141,6 +143,8 @@ ut(handelser
         var r: [String: Any] = [
             "rubrik": avRymd(h.title ?? "(utan rubrik)"),
             "kalender": avRymd(h.calendar?.title ?? ""),
+            // Id:t också (2026-10-10): två kalendrar kan heta likadant.
+            "kalenderId": h.calendar?.calendarIdentifier ?? "",
             "heldag": h.isAllDay,
         ]
         if let s = h.startDate { r["start"] = skriv.string(from: s) }

@@ -35,3 +35,16 @@ test('slutsatsen läses också med engelska markörer', async () => {
   assert.equal(b.oppet, 'who sent it');
   assert.equal(slutsatsUr('What is the due date?'), null);
 });
+
+// Prov med riktiga Gemma (v-gemma, 2026-10-11): agenten frågade om andra
+// ärenden (ett annat mejl, en kravspecifikation) och en slutsats tappade
+// datumet och beloppet som stod i underlaget.
+test('agenten håller sig till fyndet och slutsatsen bär datum, belopp och namn ur underlaget', async () => {
+  let system = '';
+  await undersok({ fynd: { titel: 'Avtal', text: 'Uppsägning senast 2026-11-30.' }, varv: 1,
+    agent: async ({ meddelanden }) => { system = meddelanden[0].content; return { text: 'SLUTSATS: x\nSÄKERHET: hög\nÖPPET: inget' }; },
+    assistent: async () => ({ svar: '', steg: [] }) });
+  assert.match(system, /dra inte in andra ärenden/);
+  assert.match(system, /Står det användaren behöver redan i underlaget, skriv slutsatsen direkt/);
+  assert.match(system, /datum, belopp och namn ur underlaget/);
+});

@@ -1,10 +1,10 @@
 <!--
-version: 5
-datum: 2026-10-09
+version: 6
+datum: 2026-10-10
 -->
 # Villkor för Maximus
 
-Version 5 · gäller från 9 oktober 2026
+Version 6 · gäller från 10 oktober 2026
 
 ## 1. Parter och vad det här är
 
@@ -41,11 +41,11 @@ Version 5 · gäller från 9 oktober 2026
 
 5.1 Maximus läser Mail, Kalender, Påminnelser, Anteckningar, Meddelanden, samtalslistan och mappar på din dator bara om du ger tillstånd, och bara det du pekat ut. Läsningen sker på datorn.
 
-5.2 Agenten kan föreslå att göra saker åt dig: skapa en påminnelse, lägga in ett möte, lägga ett mejlutkast i Utkast, skriva en anteckning i den mapp du valt och köra en genväg du själv byggt. En handling görs först när du sagt ja — eller utan att fråga, om du valt "får göra" för just den sortens handling. Påminnelser och möten går att ångra från Maximus.
+5.2 Agenten kan föreslå att göra saker åt dig: skapa en påminnelse, lägga in ett möte, lägga ett mejlutkast i Utkast, föreslå ett svar på ett mejl, skriva en anteckning i den mapp du valt och köra en genväg du själv byggt. En handling görs först när du sagt ja — eller utan att fråga, om du valt "får göra" för just den sortens handling. Påminnelser och möten går att ångra från Maximus.
 
-5.3 Maximus skickar aldrig e-post och aldrig meddelanden. Ett utkast ligger kvar i Utkast tills du själv trycker på skicka.
+5.3 Maximus skickar aldrig något utan att du trycker Skicka. Agenten kan föreslå svar på mejl, men ett förslag är text i Maximus: inget skrivs i Mail och inget skickas förrän du själv trycker Skicka. Skicka är en knapp bara du kan trycka på. Agenten och modellen kan inte trycka på den, och text i ett mejl, ett dokument, en sida eller ett svar kan inte utlösa den. Det som skickas är exakt den text du ser när du trycker. Efter tryckningen har du tio sekunder att ångra; ångrar du, eller stängs Maximus under tiden, skickas ingenting. Sedan skapar Mail ett svar på det ursprungliga brevet, från ditt konto och med den signatur som visades, om någon, och skickar det. Det som skickats står i liggaren. Meddelanden (iMessage och SMS) skickar Maximus aldrig.
 
-5.4 Du ansvarar för de handlingar du godkänner och för de sorter av handlingar du låter agenten göra utan att fråga. Vad en genväg gör bestäms av genvägen, inte av Maximus.
+5.4 Du ansvarar för de handlingar du godkänner, för de svar du skickar och för de sorter av handlingar du låter agenten göra utan att fråga. Vad en genväg gör bestäms av genvägen, inte av Maximus.
 
 5.5 Väljer du att agenten ska köra i bakgrunden startas den när du loggar in och arbetar också när appen är stängd. Du stänger av det under Inställningar → Agenten.
 

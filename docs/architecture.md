@@ -212,7 +212,11 @@ The five **actions** are reminder, meeting, mail draft, note and Shortcut
 - Each has a lever: `fraga` (ask, the default), `far` (allowed) or `aldrig` (never).
 - A proposed action waits for Yes/No. The calendar and reminder ones can be undone.
 - Every executed action writes a ledger row.
-- Maximus never sends mail. It writes a draft.
+- Maximus never sends anything unless you press Send. Suggested replies
+  are text; the Send button in the reply box is the only way out. It is no
+  action and no tool, so the agent and the model cannot reach it. After a
+  10-second undo window (in memory only), Mail replies to the original and
+  sends.
 
 **6. Answer.**
 - `kedja.lokaltSvar` → `lokal.svaraLokalt(…, {plats: 'samtal'})` streams from

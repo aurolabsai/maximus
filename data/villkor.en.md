@@ -1,9 +1,9 @@
 <!--
-version: 5
+version: 6
 -->
 # Terms for Maximus
 
-Version 5 · effective from 9 October 2026
+Version 6 · effective from 10 October 2026
 
 This is an English translation of the Swedish terms. If the two differ, the Swedish version applies.
 
@@ -42,11 +42,11 @@ This is an English translation of the Swedish terms. If the two differ, the Swed
 
 5.1 Maximus reads Mail, Calendar, Reminders, Notes, Messages, the call list and folders on your computer only if you give permission, and only what you have pointed out. The reading happens on the computer.
 
-5.2 The agent can offer to do things for you: create a reminder, add a meeting, put an email draft in Drafts, write a note in the folder you chose and run a shortcut you built yourself. An action is carried out only once you have said yes — or without asking, if you have chosen "Allowed" for that kind of action. Reminders and meetings can be undone from Maximus.
+5.2 The agent can offer to do things for you: create a reminder, add a meeting, put an email draft in Drafts, suggest a reply to an email, write a note in the folder you chose and run a shortcut you built yourself. An action is carried out only once you have said yes — or without asking, if you have chosen "Allowed" for that kind of action. Reminders and meetings can be undone from Maximus.
 
-5.3 Maximus never sends email and never sends messages. A draft stays in Drafts until you press send yourself.
+5.3 Maximus never sends anything unless you press Send. The agent can suggest replies to emails, but a suggestion is text in Maximus: nothing is written in Mail and nothing is sent until you press Send yourself. Send is a button only you can press. The agent and the model cannot press it, and text in an email, a document, a page or an answer cannot trigger it. What is sent is exactly the text you see when you press. After pressing you have ten seconds to undo; if you undo, or Maximus is closed in the meantime, nothing is sent. Mail then creates a reply to the original message, from your account and with the signature that was shown, if any, and sends it. What was sent is recorded in the ledger. Maximus never sends messages (iMessage and SMS).
 
-5.4 You are responsible for the actions you approve and for the kinds of action you let the agent take without asking. What a shortcut does is decided by the shortcut, not by Maximus.
+5.4 You are responsible for the actions you approve, for the replies you send and for the kinds of action you let the agent take without asking. What a shortcut does is decided by the shortcut, not by Maximus.
 
 5.5 If you choose to let the agent run in the background, it starts when you log in and keeps working when the app is closed. You turn this off under Settings → Agent.
 

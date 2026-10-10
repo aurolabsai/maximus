@@ -32,7 +32,7 @@ test('/help och modellens rader på engelska, kommandona på engelska', () => {
 test('tillståndsfrågorna och besluten på engelska', () => {
   pa('en', () => {
     assert.match(TILLSTAND.find(t => t.id === 'kalender').fraga, /^May I read your calendar\?/);
-    assert.equal(beslut('epost', 'ja', { konto: 'a@b.se' }).skal, 'Email on. I read the inbox on a@b.se. I never send — a reply becomes at most a draft that you send yourself.');
+    assert.equal(beslut('epost', 'ja', { konto: 'a@b.se' }).skal, 'Email on. I read the inbox on a@b.se. I never send anything unless you press Send.');
     assert.equal(beslut('epost', 'kanske').fel, 'Answer yes or no.');
     assert.equal(lage({}).find(x => x.id === 'telefon').namn, 'To your phone');
   });

@@ -81,6 +81,7 @@
  "lib.dokument.utanAndelse": "files without an extension",
  "lib.dokument.whisperSaknas": "The transcription program isn't on this computer. Ask IT to install whisper-cpp.",
  "lib.dokument.wordLasesInte": "The document can't be read. Is it password protected?",
+ "lib.du.forKort": "Write a few more words about yourself — what you work on and where.",
  "lib.du.inteExport": "This doesn't look like a LinkedIn export. It's often called Basic_LinkedInDataExport_….zip.",
  "lib.kalender.heldag": "{datum} (all day)",
  "lib.kalender.kallade": "Invited: {vem}",

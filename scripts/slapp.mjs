@@ -24,7 +24,7 @@
 ///
 ///        export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.maximus/slapp.key)"
 ///        export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=…
-///        npm run tauri build -- --config src-tauri/tauri.slapp.conf.json
+///        node scripts/signera.mjs
 ///
 /// 3. MANIFESTET. Det här skriptet läser signaturfilerna ur bygget och
 ///    skriver den JSON som tauri-plugin-updater läser — och som
@@ -42,7 +42,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const BYGGT = join(ROT, 'src-tauri', 'target', 'release', 'bundle');
+// Släppet kommer ur scripts/signera.mjs (bundle/slapp/): den signerade,
+// notariserade appen och uppdateringsarkivet av just den. Tauris egna
+// arkiv i bundle/macos är av ett ad hoc-bygge och används aldrig.
+const BYGGT = join(ROT, 'src-tauri', 'target', 'release', 'bundle', 'slapp');
+const UTAN_NOTARISERING = process.argv.includes('--utan-notarisering');
 
 /// Var filerna hamnar. Adressen i manifestet måste vara den filen faktiskt
 /// ligger på — ett manifest som pekar fel är ett manifest som ser rätt ut.
@@ -78,11 +82,10 @@ const sigar = alla.filter(f => f.endsWith('.sig'));
 
 const brist = [];
 if (!alla.length) brist.push(`Inget bygge i ${BYGGT}. Kör:\n`
-  + '  npm run tauri build -- --config src-tauri/tauri.slapp.conf.json');
+  + '  node scripts/signera.mjs');
 if (alla.length && !sigar.length) {
   brist.push('Bygget saknar .sig-filer. Bygg med släppkonfigurationen och nyckeln i miljön:\n'
-    + '  export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.maximus/slapp.key)"\n'
-    + '  npm run tauri build -- --config src-tauri/tauri.slapp.conf.json');
+    + '  node scripts/signera.mjs');
 }
 
 const konf = JSON.parse(await readFile(join(ROT, 'src-tauri', 'tauri.slapp.conf.json'), 'utf8'));
@@ -91,6 +94,21 @@ if (!pub || pub.startsWith('SÄTT-')) {
   brist.push('src-tauri/tauri.slapp.conf.json saknar en riktig plugins.updater.pubkey.\n'
     + '  Gör nyckelparet en gång:  npx tauri signer generate -w ~/.maximus/slapp.key\n'
     + '  Lägg den PUBLIKA nyckeln där. Den privata ligger utanför förrådet.');
+}
+
+// Mac: en .sig säger bara att uppdateringen kommer från oss. Gatekeeper
+// kräver Apples kedja — signerad med Developer ID, notariserad, häftad. Utan
+// den öppnas appen inte på en annan Mac (1.0.0, 2026-10-10), hur många .sig
+// som än finns. --utan-notarisering finns för provmanifest, aldrig för ett släpp.
+const macApp = join(BYGGT, 'Maximus.app');
+if (alla.some(f => f.endsWith('.app.tar.gz')) && !UTAN_NOTARISERING) {
+  const { spawnSync } = await import('node:child_process');
+  const prova = (cmd, args) => { const r = spawnSync(cmd, args, { encoding: 'utf8' }); return { ok: r.status === 0, ut: `${r.stdout}${r.stderr}`.trim() }; };
+  const hafta = prova('xcrun', ['stapler', 'validate', macApp]);
+  const gk = prova('spctl', ['--assess', '--type', 'execute', '--verbose=4', macApp]);
+  if (!hafta.ok || !gk.ok) brist.push('Mac-appen är inte notariserad och häftad, och Gatekeeper avvisar den:\n'
+    + `    stapler: ${hafta.ut.split('\n').pop()}\n    spctl:   ${gk.ut.split('\n').pop()}\n`
+    + '  Bygg med node scripts/signera.mjs (Developer ID + notarisering).');
 }
 
 if (brist.length) {

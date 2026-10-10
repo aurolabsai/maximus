@@ -106,5 +106,8 @@
  "uppdatering.nyttolast": "GET uppdateringsmanifest · version {version} · plattform {plats}",
  "uppdatering.servern": "uppdateringsservern",
  "uppdatering.svarade": "servern svarade {status}",
- "zip.inteZip": "Filen är inte en zip."
+ "zip.inteZip": "Filen är inte en zip.",
+ "svar.fel.ofullstandigt": "Svaret saknar mottagare, brev eller text.",
+ "svar.fel.mailSvaradeInte": "Mail bekräftade inte att svaret gick iväg. Kontrollera Utkorgen i Mail; texten ligger kvar här.",
+ "svar.fel.mottagare": "Mail ville svara till en annan adress än den som visades. Ingenting skickades."
 }

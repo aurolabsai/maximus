@@ -387,12 +387,14 @@ Open it from the top-bar icon or the session's row menu: **Decision record as PD
 
 | Command | What it does | Limits |
 |---|---|---|
-| `/post` | The latest 10 subject lines from the mailbox you chose. The first time, it asks for permission and which account. "Open N" (Öppna N) opens a mail as a conversation. | Reads only. Bodies are read only when you open a mail. Never sends, deletes, moves or marks as read. |
+| `/post` | The latest 10 subject lines from the mailbox you chose. The first time, it asks for permission and which account. "Open N" (Öppna N) opens a mail as a conversation. | Reads only. Bodies are read only when you open a mail. A mail with a suggested reply is marked. Never deletes, moves or marks as read; sends only a reply you sent with **Send** (Skicka). |
 | `/kalender` | Meetings for the next 7 days, from Apple Calendar, including Google and Exchange accounts added there. "Open N" opens a meeting as a conversation: title, time, place, attendees, notes. | Never creates, moves, deletes or answers an invitation. |
 
 An opened mail or meeting is an **attachment**, treated like a dropped document: masked when you take the masked version, and classified before any search goes out.
 
-**Replying to a mail.** In a conversation opened from a mail, the top bar says who it came from and offers **Write reply** (Skriv svar). That fills the composer with an instruction you can add to. The answer comes as a draft block with two choices: copy, and **Open as reply in Mail — you send it yourself**. The second opens a pre-filled Mail window, and the text is also put on the clipboard, because macOS cuts long mailto texts. **Maximus never sends mail.**
+**Replying to a mail.** In a conversation opened from a mail, the top bar says who it came from and offers **Write reply** (Skriv svar). That opens the reply box: recipient, subject (Re: …), the text (editable), and the Mail signature that will be added (chosen from Mail's signatures; none if you have none). **Shorter** (Kortare), **More formal** (Mer formellt) and **Friendlier** (Vänligare) rewrite the text on the local model. If the agent has a **Suggested reply** (Förslag på svar) for the mail, the box starts with it.
+
+**Send** (Skicka) is a button only you can press. The first time, Maximus asks: send directly from Maximus from now on, or open the draft in Mail as before? The choice is saved as the action **Send reply** (Skicka svar) under Settings → Agent → Actions, with **Ask every time** (Fråga varje gång), **Allowed** (Tillåtet) and **Open in Mail** (Öppna i Mail). Even Allowed needs your press. After the press the line **Sending in 10 s · Undo** (Skickas om 10 s · Ångra) shows. Undo means nothing is sent and the text stays. The countdown lives only in memory, so quitting Maximus during it sends nothing. Then Mail makes a real reply to the original (same thread, In-Reply-To, the right account), sets exactly the text you saw and the signature, and sends it. The ledger gets a **Sent** row with recipient, subject, time and text. If Mail or the network fails, Maximus shows the error, nothing is called sent, and the text stays. **Maximus never sends anything unless you press Send.**
 
 **Deadlines** (Frister). When the law text an answer relies on contains a time limit, such as "within three weeks of…", Maximus offers to **Watch** (Bevaka) it.
 
@@ -428,7 +430,7 @@ Each session is created when you allow that app.
 
 ## 10. The agent
 
-The agent reads what you allowed, ranks it, sets aside what does not concern you **with a reason**, and tells you when something matters. **It reads, and does only what you said yes to.** It never sends e-mail or messages. It never edits an existing note, reminder or meeting, and never deletes anything it did not create itself.
+The agent reads what you allowed, ranks it, sets aside what does not concern you **with a reason**, and tells you when something matters. **It reads, and does only what you said yes to.** It never sends messages, and an e-mail goes out only when you press Send. It never edits an existing note, reminder or meeting, and never deletes anything it did not create itself.
 
 Text the agent reads (a mail, a page) is **foreign text**. If a mail tells the agent to ignore its instructions, it does not.
 
@@ -593,7 +595,7 @@ The agent can **propose** to do things. A proposal appears in the conversation w
 | Write notes (in the folder you chose) | — |
 | Run Shortcuts (ones you built) | — |
 
-E-mail is only ever drafted, never sent. Messages are never sent.
+The agent only ever drafts or suggests e-mail. A reply goes out only when you press **Send** (Skicka) in the reply box; **Send reply** (Skicka svar) sets whether Send sends directly, asks every time, or opens the draft in Mail. Messages are never sent.
 
 **Write a daily overview in the notes** appears once Notes reading is on. Despite the name, it is not once a day: after any round with new findings, it writes a *new* note "MAXIMUS <date time>" listing up to 20 unread findings. It never edits an existing note.
 
@@ -966,7 +968,7 @@ Settings has seven tabs. Each tab's sections also appear in the side panel as ju
 
 ## 22. What Maximus does not do
 
-- It does not send e-mail or messages, post, like, or contact anyone in your name.
+- It does not send anything unless you press Send. It never sends messages, posts, likes, or contacts anyone in your name on its own.
 - It does not edit or delete your existing mail, notes, reminders or meetings.
 - It does not run when closed, unless you chose the background mode.
 - It does not follow the masked text to wherever you paste it. What the recipient does with it is your choice.

@@ -10,6 +10,8 @@ import { fragorna, sammanstall } from '/fragor.js';
 import { demo } from '/demo.js';
 import { ikon } from '/ikoner.js';
 import { laddaSprak, oversattSidan, lokal, t, sprak, svenska } from '/sprakstod.js';
+import { arFelanmalan, oppnaFelrapport } from '/felrapport.js';
+import { agentBehover, VAR as BEHOV_VAR } from '/behov.js';
 
 // Språket före första ritningen (2026-10-09). Servern har avgjort det: ditt
 // val, annars datorns, annars det närmaste som finns (lib/sprakstod.mjs).
@@ -110,7 +112,7 @@ const post = async (vag, kropp) => {
   const d = await r.json().catch(() => ({}));
   // Felet bär serverns koder (saknar, kod) så att koden kan känna igen det
   // utan att läsa meningen, som byter språk.
-  if (!r.ok) throw Object.assign(new Error(d.error || t('fel.nagotGickFel', { status: r.status })), { saknar: d.saknar, kod: d.kod });
+  if (!r.ok) throw Object.assign(new Error(d.error || t('fel.nagotGickFel', { status: r.status })), { saknar: d.saknar, kod: d.kod, behov: d.behov });
   return d;
 };
 const hamta = async vag => { const r = await fetch(vag); if (!r.ok) throw new Error(t('fel.kundeInteHamta')); return r.json(); };
@@ -138,6 +140,17 @@ async function laddaLista() {
   // nya. Det står varken bland uppdragen eller bland samtalen.
   const agenten = stat.sessioner.find(x => x.agentsamtal && !x.arkiverad);
   $('#list-agenten').classList.toggle('arbetar', Boolean(agenten?.arbete));
+  // Grinden (2026-10-10): säger servern något annat än inställningarna här
+  // har de ändrats någon annanstans — läs om dem, och rita om det som visar läget.
+  if (uppSvar?.behov && uppSvar.behov.klar !== behovNu().klar) {
+    installningar = { ...installningar, ...((await hamta('/api/uppstart').catch(() => ({}))).installningar || {}) };
+    if (vyn === 'samtal' && manus.pagar !== true) rita();
+  }
+  const behov = behovNu();
+  const listAgent = $('#list-agenten');
+  listAgent.classList.toggle('av', !behov.klar);
+  const agentNamn = behov.klar ? t('list.agent') : `${t('list.agent')}: ${t('behov.av', { vad: behovVad(behov) })}`;
+  listAgent.title = agentNamn; listAgent.setAttribute('aria-label', agentNamn);
   if (agenten && stat.lada !== 'arkiv') {
     const rad = el('div', `sess agentrad${agenten.id === stat.aktiv && !agentFilter ? ' vald' : ''}${agenten.arbete ? ' arbetar' : ''}`);
     rad.dataset.sess = agenten.id;
@@ -146,7 +159,8 @@ async function laddaLista() {
     titel.append(el('span', 'sess-namn', { textContent: t('lista.agenten') }));
     const meta = el('span', 'sess-meta');
     // Det nya räknas på Uppdrag, under (Fas 40). Här: när agenten senast skrev.
-    meta.append(el('span', 'sess-antal', { textContent: agenten.andrad ? nar(agenten.andrad) : '' }));
+    meta.append(behov.klar ? el('span', 'sess-antal', { textContent: agenten.andrad ? nar(agenten.andrad) : '' })
+      : el('span', 'sess-antal agent-av', { textContent: t('behov.statusAv'), title: t('behov.av', { vad: behovVad(behov) }) }));
     b.append(titel, meta);
     b.onclick = () => { agentFilter = null; oppnaSession(agenten.id); };
     rad.append(b);
@@ -928,6 +942,9 @@ const HJALP_AMNEN = () => [
   { g: t('hjalp.grupp.komIgang'), id: 'installningar', visa: 'inst:du', f: t('hjalp.installningar.fraga'),
     s: t('hjalp.installningar.svar') },
 
+  { g: t('hjalp.grupp.komIgang'), id: 'rapportera', visa: 'rapport', f: t('hjalp.rapportera.fraga'),
+    s: t('hjalp.rapportera.svar') },
+
   // ── Fråga och få svar ──
   { g: t('hjalp.grupp.fragaOchFaSvar'), id: 'skicka-pilen', visa: 'komp:#lage-knapp', f: t('hjalp.skicka-pilen.fraga'), demo: 'lagen',
     s: t('hjalp.skicka-pilen.svar') },
@@ -1294,6 +1311,7 @@ function visaPlats(mal) {
   else if (sort === 'skickat') $('#oppna-liggare').click();
   else if (sort === 'allt') { tillSamtalet(); vaxlaAllaFunktioner(null, $('#appmeny')); }
   else if (sort === 'komp') { tillSamtalet(); mark = document.querySelector(a); }
+  else if (sort === 'rapport') oppnaFelrapport({ formular: true, funktion: berordFunktion() });
   if (!mark) return;
   mark.classList.remove('visa-mig');
   void mark.offsetWidth;
@@ -2248,7 +2266,8 @@ function rita() {
     // De ritades bara när JS hade tagit över, och den statiska HTML-vyn som
     // mötte en ny användare visade dem aldrig. Den som öppnade MAXIMUS första
     // gången såg en rubrik, en mening och ett tomt fält — och fick gissa.
-    if (!vagvisare && !nagotPagar()) mitt.querySelector('.tom').append(ritaEttKort(), ritaHemBord());
+    // Saknar agenten något står det först, lugnt, tills det är gjort eller stängt.
+    if (!vagvisare && !nagotPagar()) mitt.querySelector('.tom').append(...[ritaBehovKort()].filter(Boolean), ritaEttKort(), ritaHemBord());
     if (vagvisare) { mitt.querySelector('.tom')?.remove(); mitt.append(ritaVagvisare(vagvisare)); }
     // Hela erbjudandet bort, inte bara exemplen.
     //
@@ -2279,6 +2298,7 @@ function rita() {
   // Inne i ett uppdrags egen tråd (Fas 40): uppdragets val en knapp bort.
   if (uppdragIn && uppdragIn.session === stat.aktiv && !stat.session.agentsamtal) mitt.append(uppdragsband(uppdragIn));
   if (stat.session.agentsamtal) {
+    if (!behovNu().klar) mitt.append(behovBand());
     if (agentFilter) {
       turerna = turerna.filter(tt => !tt.uppdrag || tt.uppdrag === agentFilter.id);
       const f = el('div', 'agentfilter');
@@ -2671,15 +2691,11 @@ function taForslag(n = 3) {
 }
 /// Lämnar över ett utkast till Mail.
 ///
-/// MAXIMUS SKICKAR INTE. Det här är en mailto-adress, alltså samma sak som att
+/// Det här skickar inte. Det är en mailto-adress, alltså samma sak som att
 /// klicka på en länk: datorn öppnar sitt e-postprogram med texten ifylld, och
-/// sedan står den där tills en människa trycker skicka.
-///
-/// Det spelar roll att det är just mailto och inte AppleScript. AppleScript
-/// hade kunnat lägga brevet i Mails utkastmapp — och samma gränssnitt kan
-/// skicka det. MAXIMUS rör aldrig Mails innehåll; lib/post.mjs läser, och ett
-/// test ser efter att skrivverben inte finns där. Den gränsen hade suddats
-/// ut av en enda bekvämlighet.
+/// sedan står den där tills en människa trycker skicka. Sedan 2026-10-10 är
+/// den reserven: ett svar på ett känt brev går genom svarsrutan, där bara
+/// ditt tryck på Skicka skickar (se oppnaSvarsruta och lib/svarmail.mjs).
 ///
 /// Långa utkast klipps av operativsystemet någonstans över ett par tusen
 /// tecken. Därför läggs texten också på urklipp, och rutan säger det.
@@ -3201,10 +3217,9 @@ function pyntaUtkast(n = document) {
 
   // Kom samtalet från ett mejl får utkastet en väg tillbaka dit.
   //
-  // MAXIMUS skickar ingenting. Knappen lämnar över texten till datorn, som
-  // öppnar ett fönster med den ifylld — och sedan är det du som trycker
-  // skicka. Det är en medveten gräns: en app som kan skicka mejl åt dig är
-  // en app som kan skicka fel mejl åt dig.
+  // Knappen skickar ingenting. Den öppnar svarsrutan med texten, där du ser
+  // mottagare, ämne och signatur och trycker Skicka själv — eller, för ett
+  // samtal som inte vet brevets id, ett nytt mejl i Mail som förut.
   const u = stat.session?.ursprung;
   if (u?.sort === 'mejl') {
     for (const topp of n.querySelectorAll('.utkast-topp')) {
@@ -3213,7 +3228,12 @@ function pyntaUtkast(n = document) {
         title: t('utkast.mailTitel'),
         'aria-label': t('utkast.mailAria') });
       b.append(ikon('inkorg', 16));
-      b.onclick = () => tillMail(topp.closest('.utkast').querySelector('.utkast-text').textContent, u, b);
+      b.onclick = () => {
+        const text = topp.closest('.utkast').querySelector('.utkast-text').textContent;
+        // Brevet känt (2026-10-10): svarsrutan, med texten att ändra och skicka.
+        if (u.id && u.konto) return oppnaSvarsruta({ u, text, session: stat.session?.id || null });
+        tillMail(text, u, b);
+      };
       topp.append(b);
     }
   }
@@ -3227,6 +3247,281 @@ $('#mitt').addEventListener('click', e => {
   const n = b.closest('.utkast').querySelector('.utkast-text');
   kopiera(n.dataset.ra ?? n.textContent, b);
 });
+
+// ── Svar på mejl (2026-10-10) ─────────────────────────────────────────────
+//
+// Agenten föreslår, du ändrar, och Skicka är en knapp bara du kan trycka.
+// Ingenting här skickas av något annat än ett klick på #svar-skicka: ingen
+// text i ett mejl, ett svar eller en sida kan trycka den. Det du ser fryses
+// vid trycket, och avtrycket av texten följer med — servern jämför. Sedan
+// tio sekunder att ångra, och först därefter går svaret till Mail.
+const svar = { f: null, vantar: null, klocka: null, sig: [], skickar: false };
+
+/// Avtrycket av allt som går ut — konto, låda, brev, mottagarna, ämne,
+/// text och signatur — räknat som servern räknar det (lib/svar.mjs,
+/// svarsavtryck). Ändras något av dem efter trycket stämmer det inte.
+async function svarsavtryck({ konto, lada = 'INBOX', brevId, till = [], amne, text, signatur = null }) {
+  const kanon = JSON.stringify([String(konto ?? ''), String(lada ?? 'INBOX'), String(brevId ?? ''),
+    [...new Set([].concat(till).map(a => String(a).toLowerCase()))].sort(), String(amne ?? ''), String(text ?? ''), signatur ? String(signatur) : '']);
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(kanon));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+/// Alla mottagare, som de går ut. Ett namn bara när det är en enda.
+const tillText = x => {
+  const t = [].concat(x.till || []).filter(Boolean);
+  return t.length === 1 && x.namn && x.namn !== t[0] ? `${x.namn} <${t[0]}>` : (t.join(', ') || '—');
+};
+
+const reAmne = a => (/^\s*(re|sv|aw|vs|antw)\s*:/i.test(a || '') ? String(a).trim() : `Re: ${a || ''}`.trim());
+
+/// Förslaget för ett brev, om agenten skrivit ett.
+async function forslagFor(konto, brevId) {
+  const d = await hamta('/api/svar').catch(() => ({ forslag: [] }));
+  if (d.lage) svar.lage = d.lage;
+  return (d.forslag || []).find(f => f.konto === konto && f.brevId === brevId) || null;
+}
+
+/// Öppnar rutan. `f`: ett förslag ur /api/svar. `u`: ett samtals ursprung
+/// (ett öppnat brev) — då hämtas förslaget, eller skrivs ett.
+async function oppnaSvarsruta({ f = null, u = null, text = null, session = null } = {}) {
+  const d = $('#svarsruta');
+  if (svar.vantar) { if (!d.open) d.showModal(); return; }
+  if (!f && u?.id && u?.konto) f = await forslagFor(u.konto, u.id);
+  svar.f = f || { id: null, konto: u?.konto, lada: u?.lada || 'INBOX', brevId: u?.id, till: [].concat(u?.adress || []), namn: u?.namn, amne: reAmne(u?.amne), text: '', session };
+  if (text != null) svar.f = { ...svar.f, text };
+  const x = svar.f;
+  $('#svar-rubrik').textContent = f && text == null ? t('svar.rubrikForslag') : t('svar.rubrik');
+  $('#svar-till').textContent = tillText(x);
+  $('#svar-amne').textContent = x.amne || '—';
+  $('#svar-varning').hidden = !x.varning;
+  const falt = $('#svar-text');
+  falt.value = x.text || '';
+  falt.readOnly = false;
+  svarLage('');
+  $('#svar-fraga').hidden = true;
+  $('#svar-avfarda').hidden = !x.id;
+  for (const b of d.querySelectorAll('.svar-knappar button, .svar-snabb button')) b.disabled = false;
+  d.showModal();
+  falt.focus();
+  ritaSignatur(x.konto);
+  // Inget förslag än: servern skapar ett ur brevet — mottagarna och ämnet
+  // kommer därifrån, aldrig härifrån. Med din text frågas ingen modell;
+  // utan skrivs ett förslag, och rutan går att skriva i under tiden.
+  if (x.brevId && x.konto && !x.id) {
+    const egen = x.text || null;
+    $('#svar-skicka').disabled = $('#svar-mail').disabled = true;
+    if (!egen) falt.placeholder = t('svar.skriverForslag');
+    const r = await post('/api/svar/forslag', { konto: x.konto, lada: x.lada, id: x.brevId, session, ...(egen ? { text: egen } : {}) }).catch(e => ({ error: e.message }));
+    falt.placeholder = '';
+    if (svar.f !== x) return;
+    if (r.error) return svarLage(t('svar.forslagGickInte', { fel: r.error }));
+    svar.f = { ...r.forslag, text: falt.value.trim() ? falt.value : r.forslag.text };
+    if (!falt.value.trim()) falt.value = r.forslag.text;
+    $('#svar-till').textContent = tillText(svar.f);
+    $('#svar-amne').textContent = svar.f.amne || '—';
+    $('#svar-skicka').disabled = $('#svar-mail').disabled = false;
+    $('#svar-avfarda').hidden = false;
+  }
+}
+
+/// Signaturen Mail lägger till: du ser vilken, och kan välja en annan.
+async function ritaSignatur(konto) {
+  const v = $('#svar-signatur');
+  v.textContent = '';
+  v.append(el('option', null, { value: '', textContent: t('svar.ingenSignatur') }));
+  $('#svar-sig-text').hidden = true;
+  if (!konto) return;
+  const d = await hamta(`/api/svar/signatur?konto=${encodeURIComponent(konto)}`).catch(() => ({ signaturer: [] }));
+  svar.sig = d.signaturer || [];
+  for (const s of svar.sig) v.append(el('option', null, { value: s.namn, textContent: s.namn }));
+  v.value = d.vald || '';
+  visaSignatur();
+}
+function visaSignatur() {
+  const s = svar.sig.find(x => x.namn === $('#svar-signatur').value);
+  $('#svar-sig-text').textContent = s?.text || '';
+  $('#svar-sig-text').hidden = !s?.text;
+}
+$('#svar-signatur')?.addEventListener('change', async () => {
+  visaSignatur();
+  const konto = svar.f?.konto;
+  if (konto) await sparaInstallningar({ svar: { ...(installningar.svar || {}), signaturer: { [konto]: $('#svar-signatur').value } } }).catch(() => {});
+});
+
+function svarLage(text, { angra = false } = {}) {
+  $('#svar-lage').hidden = !text;
+  $('#svar-lage-text').textContent = text;
+  $('#svar-angra').hidden = !angra;
+}
+
+/// Frågar i rutan, med knappar. Svarar med valets id, eller null.
+function svarFraga(text, val) {
+  return new Promise(los => {
+    $('#svar-fraga-text').textContent = text;
+    const rad = $('#svar-fraga-val');
+    rad.textContent = '';
+    for (const [id, etikett, klass] of val) {
+      const b = el('button', klass, { type: 'button', textContent: etikett });
+      b.onclick = () => { $('#svar-fraga').hidden = true; los(id); };
+      rad.append(b);
+    }
+    $('#svar-fraga').hidden = false;
+    rad.querySelector('button')?.focus();
+  });
+}
+
+/// Rutan låst medan något pågår, eller öppen igen.
+function svarLast(last) {
+  $('#svar-text').readOnly = last;
+  for (const b of $('#svarsruta').querySelectorAll('.svar-knappar button, .svar-snabb button')) b.disabled = last;
+  $('#svar-signatur').disabled = last;
+}
+
+for (const b of document.querySelectorAll('#svarsruta [data-stil]')) b.addEventListener('click', async () => {
+  const falt = $('#svar-text');
+  if (!falt.value.trim()) return;
+  svarLast(true);
+  svarLage(t('svar.skriverOm'));
+  const r = await post('/api/svar/omskriv', { text: falt.value, stil: b.dataset.stil }).catch(e => ({ error: e.message }));
+  svarLast(false);
+  if (r.error) return svarLage(t('svar.omskrivGickInte', { fel: r.error }));
+  falt.value = r.text;
+  svarLage(t('svar.omskrivet'));
+  falt.focus();
+});
+
+/// Öppna i Mail: svaret på originalet öppnas där, och du skickar själv.
+/// Går det inte öppnas ett nytt mejl som förut.
+async function svarIMail() {
+  const x = svar.f, text = $('#svar-text').value, signatur = $('#svar-signatur').value || null;
+  svarLast(true);
+  const r = x.id ? await post('/api/svar/mail', { forslag: x.id, text, signatur,
+    hash: await svarsavtryck({ ...x, text, signatur }) }).catch(e => ({ error: e.message })) : { error: 'inget brev' };
+  svarLast(false);
+  if (r.error) tillMail(text, { adress: [].concat(x.till || []).join(','), amne: x.amne }, $('#svar-mail'));
+  svarLage(t('svar.oppnatIMail'));
+}
+
+async function skickaSvar() {
+  // Ett tryck i taget: ett dubbelklick blir ett mejl.
+  if (svar.skickar || svar.vantar) return;
+  svar.skickar = true;
+  try {
+    const x = svar.f;
+    if (!$('#svar-text').value.trim()) return svarLage(t('svar.tomText'));
+    if (!svar.lage) await forslagFor('', '');
+    let lage = svar.lage?.skicka || null;
+    // Första gången: frågan, och valet sparas.
+    if (!lage) {
+      const v = await svarFraga(t('svar.forstaFragan'), [['far', t('svar.valSkicka'), 'primar'], ['aldrig', t('svar.valMail'), 'tyst'], [null, t('allmant.avbryt'), 'tyst']]);
+      if (!v) return;
+      await sparaInstallningar({ handlingar: { ...(installningar.handlingar || {}), skickasvar: v } });
+      lage = v; svar.lage = { ...(svar.lage || {}), skicka: v };
+    } else if (lage === 'fraga') {
+      const v = await svarFraga(t('svar.fragaVarjeGang', { till: tillText(x) }), [['skicka', t('svar.skickaNu'), 'primar'], ['mail', t('svar.oppnaIMail'), 'tyst'], [null, t('allmant.avbryt'), 'tyst']]);
+      if (!v) return;
+      if (v === 'mail') lage = 'aldrig';
+    }
+    if (lage === 'aldrig') return svarIMail();
+    // Fryst: det som står nu är det som går. Servern tar mottagare, ämne
+    // och brev ur förslaget; avtrycket säger att det är samma som visades.
+    if (!x.id) return svarLage(t('svar.gickInte', { fel: '' }));
+    const text = $('#svar-text').value, signatur = $('#svar-signatur').value || null;
+    svarLast(true);
+    const r = await post('/api/svar/skicka', { nyckel: crypto.randomUUID(), forslag: x.id, text, signatur,
+      hash: await svarsavtryck({ ...x, text, signatur }) }).catch(e => ({ error: e.message }));
+    if (r.error) { svarLast(false); return svarLage(t('svar.gickInte', { fel: r.error })); }
+    svar.vantar = { id: r.id, slut: Date.now() + r.kvarMs, text };
+    $('#svar-mail').disabled = $('#svar-skicka').disabled = true;
+    svarLage(t('svar.skickasOm', { s: Math.ceil(r.kvarMs / 1000) }), { angra: true });
+    $('#svar-angra').disabled = false;
+    $('#svar-angra').focus();
+    // Siffran räknar ned; skärmläsaren får raden en gång, inte varje sekund.
+    $('#svar-lage-text').setAttribute('aria-live', 'off');
+    svar.klocka = setInterval(() => {
+      const kvar = Math.max(0, Math.ceil((svar.vantar.slut - Date.now()) / 1000));
+      $('#svar-lage-text').textContent = kvar ? t('svar.skickasOm', { s: kvar }) : t('svar.skickar');
+    }, 250);
+  } finally { svar.skickar = false; }
+}
+
+function svarSlut() {
+  clearInterval(svar.klocka); svar.klocka = null; svar.vantar = null;
+  $('#svar-lage-text').setAttribute('aria-live', 'polite');
+}
+
+$('#svar-angra')?.addEventListener('click', async () => {
+  if (!svar.vantar) return;
+  $('#svar-angra').disabled = true;
+  const r = await post('/api/svar/angra', { id: svar.vantar.id }).catch(e => ({ error: e.message }));
+  if (!r.angrat) { $('#svar-angra').disabled = false; return; }
+  svarSlut();
+  svarLast(false);
+  svarLage(t('svar.angrat'));
+  $('#svar-text').focus();
+});
+
+/// Hur det gick, från servern.
+function svarHant(h) {
+  if (h.forslag) {
+    const kort = document.querySelector(`[data-svarsforslag="${CSS.escape(h.forslag.id)}"]`);
+    if (kort) kort.replaceWith(ritaSvarsforslagKort(h.forslag));
+  }
+  const s = h.skickat;
+  if (!s || svar.vantar?.id !== s.id) return;
+  svarSlut();
+  if (s.fel) { svarLast(false); return svarLage(t('svar.gickInte', { fel: s.fel })); }
+  svarLage(t('svar.skickat', { tid: klockan(s.nar) }));
+  $('#svar-avfarda').hidden = true;
+  if (svar.f) svar.f.status = 'skickat';
+  const kort = svar.f?.id && document.querySelector(`[data-svarsforslag="${CSS.escape(svar.f.id)}"]`);
+  if (kort) kort.replaceWith(ritaSvarsforslagKort({ ...svar.f, status: 'skickat', skickat: s.nar }));
+}
+
+$('#svar-skicka')?.addEventListener('click', () => skickaSvar());
+$('#svar-mail')?.addEventListener('click', () => svarIMail());
+$('#svar-stang')?.append(ikon('ny', 17));
+$('#svar-stang')?.addEventListener('click', () => $('#svarsruta').close());
+$('#svar-avfarda')?.addEventListener('click', async () => {
+  if (!svar.f?.id) return;
+  await post('/api/svar/spara', { id: svar.f.id, avfarda: true }).catch(() => {});
+  svar.f = null;
+  $('#svarsruta').close();
+});
+// Esc stänger inte medan ett svar väntar på att gå: då är det Ångra som gäller.
+$('#svarsruta')?.addEventListener('cancel', e => { if (svar.vantar) { e.preventDefault(); $('#svar-angra').focus(); } });
+$('#svarsruta')?.addEventListener('close', () => {
+  if (svar.vantar) return $('#svarsruta').showModal();
+  // Din text ligger kvar i förslaget: ett utkast försvinner inte för att rutan stängs.
+  const x = svar.f;
+  if (x?.id && x.status !== 'skickat' && $('#svar-text').value !== x.text) post('/api/svar/spara', { id: x.id, text: $('#svar-text').value }).catch(() => {});
+});
+
+/// Kortet i Inkorgen: vem, vad, början av förslaget, och knappen.
+function ritaSvarsforslagKort(f) {
+  const n = el('div', `svarskort svarskort-${f.status || 'forslag'}`);
+  n.dataset.svarsforslag = f.id;
+  const topp = el('div', 'svarskort-topp');
+  topp.append(ikon('inkorg', 15), el('b', null, { textContent: t('svar.rubrikForslag') }),
+    el('span', null, { textContent: tillText(f) }));
+  n.append(topp, el('p', 'svarskort-amne', { textContent: f.amne }));
+  n.append(el('p', 'svarskort-text', { textContent: String(f.text || '').slice(0, 280) + (String(f.text || '').length > 280 ? ' …' : '') }));
+  const rad = el('div', 'svarskort-val');
+  if (f.status === 'skickat') rad.append(el('span', 'handling-om', { textContent: t('svar.skickat', { tid: klockan(f.skickat) }) }));
+  else if (f.status === 'avfard') rad.append(el('span', 'handling-om', { textContent: t('svar.avfardat') }));
+  else {
+    const b = el('button', 'primar', { type: 'button', textContent: t('svar.oppnaSvaret') });
+    b.onclick = async () => {
+      // Den senaste versionen: du kan ha ändrat i den någon annanstans.
+      const d = await hamta(`/api/svar/${f.id}`).catch(() => null);
+      oppnaSvarsruta({ f: d?.forslag || f });
+    };
+    rad.append(b);
+  }
+  n.append(rad);
+  return n;
+}
 
 /// Agentens genomgång som kort: uppdraget, din instruktion i en egen ruta,
 /// vad som lästes — och en länk tillbaka till där uppdraget gavs. Förut
@@ -3288,6 +3583,12 @@ function ritaTur(tt) {
   // Maximus egen fråga — sammanfattningen av ett nytt underlag — står som
   // Maximus replik, inte i din bubbla. Se sammanfatta().
   if (tt.av === 'maximus' && tt.uppdragskort) d.append(ritaUppdragskort(tt.uppdragskort));
+  // Förslag på svar (2026-10-10): raden och kortet med knappen.
+  if (tt.svarsforslag) {
+    const r = el('div', 'maximus-planerar');
+    r.innerHTML = md(tt.sager || '');
+    d.append(r, ritaSvarsforslagKort(tt.svarsforslag));
+  }
   else if (tt.av === 'maximus') {
     const r = el('div', 'maximus-planerar');
     r.innerHTML = md(tt.sager || tt.fraga);
@@ -3758,6 +4059,7 @@ function ritaUppdragen(mitt) {
   topp.append(el('h2', null, { textContent: t('lista.uppdrag') }),
     el('p', 'muted', { textContent: upp.length ? t('uppdrag.antalUppdrag', { n: upp.length }) + (upp.some(u => u.nya) ? ' · ' + t('uppdrag.medNagotNytt', { n: upp.filter(u => u.nya).length }) : '') : t('uppdrag.inga') }));
   d.append(topp);
+  if (!behovNu().klar) d.append(behovBand());
   // Nytt först, sedan det som arbetar, sedan efter när det senast hände.
   const ordning = [...upp].sort((a, b) => (b.nya > 0) - (a.nya > 0) || (b.korsNu ? 1 : 0) - (a.korsNu ? 1 : 0)
     || new Date(b.senast || 0) - new Date(a.senast || 0));
@@ -7731,6 +8033,10 @@ async function ritaProfil() {
   $('#pr-arbetar').value = profilen.arbetar || '';
   $('#pr-vill').value = profilen.vill || '';
   $('#pr-intressen').value = profilen.intressen || '';
+  $('#pr-egen').value = profilen.egen || '';
+  $('#pr-egen').placeholder = t('du.skrivPlatshallare');
+  // Sparad men inte analyserad: sagt här, där analysen görs.
+  $('#pr-egen-om').textContent = behovNu().oanalyserad ? t('behov.oanalyserad') : t('du.ownHelp');
 }
 
 function kopplaProfil() {
@@ -7740,6 +8046,7 @@ function kopplaProfil() {
     arbetar: $('#pr-arbetar').value.trim(),
     vill: $('#pr-vill').value.trim(),
     intressen: $('#pr-intressen').value.trim(),
+    egen: $('#pr-egen').value.trim(),
   });
 
   // Du (Fas 47): LinkedIn-exporten, ett cv eller profilsidan i Safari.
@@ -7750,6 +8057,7 @@ function kopplaProfil() {
     const a = d.antal || {};
     svar.textContent = d.kalla === 'linkedin'
       ? t('profil.forslagLinkedin', { roller: a.roller || 0, inlagg: a.inlagg || 0, reaktioner: a.reaktioner || 0 })
+      : d.kalla === 'text' ? t('profil.forslagText')
       : t('profil.forslagUr', { kalla: d.kalla === 'safari' ? t('profil.kalla.safari') : t('profil.kalla.cv') });
   };
   const duKor = async (knapp, gor) => {
@@ -7768,6 +8076,17 @@ function kopplaProfil() {
     });
   };
   $('#du-safari').onclick = e => duKor(e.currentTarget, () => post('/api/du/safari', {}).catch(f => ({ error: f.message })));
+  // Din egen text, analyserad som ett cv (2026-10-10). Texten sparas direkt;
+  // svarar modellen inte än står den sparad, och knappen går att trycka igen.
+  $('#du-analysera').onclick = async e => {
+    const text = $('#pr-egen').value.trim();
+    if (!text) { $('#pr-egen').focus(); return; }
+    await duKor(e.currentTarget, async () => {
+      const d = await post('/api/du/text', { text }).catch(f => ({ error: f.message }));
+      if (!d.error) installningar = { ...installningar, profil: { ...(installningar.profil || {}), egen: text } };
+      return d.senare ? { error: t('profil.analysSenare') } : d;
+    });
+  };
 
   $('#pr-spara').onclick = async () => {
     const svar = $('#pr-svar');
@@ -8087,6 +8406,27 @@ function ritaHandlingsspakar() {
     rad.append(val);
     ruta.append(rad);
   }
+  // Skicka svar (2026-10-10): inte en handling agenten kan föreslå, bara
+  // hur ditt tryck på Skicka går till. Också Tillåtet kräver ditt tryck.
+  const sk = el('label', null, { textContent: t('agent.handlingSkickaSvar') });
+  const skv = el('select', null, { id: 'ag-skickasvar' });
+  if (!installningar.handlingar?.skickasvar) skv.append(el('option', null, { value: '', textContent: t('agent.skickaInteValt'), disabled: true }));
+  for (const [v, tt] of [['fraga', t('agent.spakFraga')], ['far', t('agent.spakFar')], ['aldrig', t('svar.oppnaIMail')]]) skv.append(el('option', null, { value: v, textContent: tt }));
+  skv.value = installningar.handlingar?.skickasvar || '';
+  skv.onchange = async () => {
+    const nya = { ...(installningar.handlingar || {}), skickasvar: skv.value };
+    await sparaInstallningar({ handlingar: nya }).catch(() => {});
+    if (svar.lage) svar.lage.skicka = skv.value;
+  };
+  sk.append(skv);
+  // Förslag på svar: vilka brev agenten skriver ett förslag till.
+  const fo = el('label', null, { textContent: t('agent.handlingForslag') });
+  const fov = el('select', null, { id: 'ag-svarsforslag' });
+  for (const [v, tt] of [['av', t('agent.forslagAv')], ['fragor', t('agent.forslagFragor')], ['alla', t('agent.forslagAlla')]]) fov.append(el('option', null, { value: v, textContent: tt }));
+  fov.value = installningar.svar?.forslag || 'fragor';
+  fov.onchange = () => sparaInstallningar({ svar: { ...(installningar.svar || {}), forslag: fov.value } }).catch(() => {});
+  fo.append(fov);
+  ruta.append(sk, el('p', 'fotnotis ag-skicka-om', { textContent: t('agent.skickaSvarOm') }), fo);
 }
 
 async function valjStartlage() {
@@ -8278,10 +8618,10 @@ function ritaSesstopp() {
   if (sv) {
     sv.hidden = u?.sort !== 'mejl';
     sv.onclick = () => {
-      // Instruktionen skrivs i rutan i stället för att skickas direkt.
-      // Den som svarar på ett brev vill nästan alltid lägga till en rad om
-      // vad svaret ska landa i, och ett utkast som redan är på väg är ett
-      // utkast man får avbryta.
+      // Svarsrutan (2026-10-10): agentens förslag om det finns, annars
+      // skrivs ett. Ett samtal från före 2026-10-10 vet inte brevets id;
+      // då skrivs instruktionen i rutan som förut.
+      if (u?.id && u?.konto) return oppnaSvarsruta({ u, session: s.id });
       ruta.value = t('session.svarInstruktion');
       ruta.focus();
       ruta.setSelectionRange(ruta.value.length, ruta.value.length);
@@ -8915,7 +9255,7 @@ const KOMMANDON = {
     if (r.fel) return maximusSager(t('post.komInteAt', { fel: r.fel }), { fel: true });
     if (!r.brev?.length) return maximusSager(t('post.ingaBrev', { var: var_ }));
     const v = await maximusFragar(t('post.senasteRubrikerna', { n: r.brev.length, var: var_ }) + '\n\n'
-      + tabellAv(['', t('post.tabellKolumner2'), t('post.tabellKolumner'), t('handelse.nar')], r.brev.map((b, i) => [i + 1, b.namn || b.adress || b.fran, b.amne, nar(b.tid)])),
+      + tabellAv(['', t('post.tabellKolumner2'), t('post.tabellKolumner'), t('handelse.nar'), t('post.kolumnSvar')], r.brev.map((b, i) => [i + 1, b.namn || b.adress || b.fran, b.amne, nar(b.tid), b.forslag ? t('post.harForslag') : ''])),
       [...r.brev.map((b, i) => ({ id: String(i), text: t('allmant.oppnaN', { n: i + 1 }) })), { id: 'inget', text: t('allmant.inget') }],
       { under: t('post.oppnatBrevOm') });
     if (v === 'inget') return;
@@ -8923,6 +9263,8 @@ const KOMMANDON = {
     const o = await post('/api/post/oppna', { konto, lada, id: b.id });
     await laddaLista();
     oppnaSession(o.session);
+    // Ett förslag på svar finns: det står i rutan direkt (2026-10-10).
+    if (b.forslag) oppnaSvarsruta({ u: { konto, lada, id: b.id, adress: b.adress, namn: b.namn, amne: b.amne }, session: o.session });
   },
 
   // Kalendern: veckan, och ett möte som öppnas blir ett samtal.
@@ -8997,6 +9339,9 @@ const KOMMANDON = {
       await post(`/api/uppdrag/${u.id}/${vad}`, {});
       return maximusSager({ pausa: t('uppdrag.statusKvitto3', { titel: u.titel }), aterstall: t('uppdrag.statusKvitto2', { titel: u.titel }), bort: t('uppdrag.statusKvitto', { titel: u.titel }) }[vad]);
     }
+    // Ett uppdrag agenten inte kan köra skapas inte: ett lugnt besked om vad
+    // som saknas i stället, med vägen dit. Servern säger samma sak.
+    if (!behovNu().klar) return behovBesked();
     const instruktion = text.trim();
     // En adress i texten är en sida att läsa. Den hämtas EN gång innan
     // uppdraget skapas: en sida som inte går att hämta ser annars likadan ut
@@ -9125,13 +9470,20 @@ const KOMMANDON = {
       aktiva.map(u => [u.titel, u.kallor.join(', '), u.aterkommande ? ofta(u.takt) : t('allmant.enGang'),
         u.senast ? nar(u.senast) : t('uppdrag.inteAn'), u.nasta ? klockan(u.nasta) : '—'])));
     delar.push(t('agent.aldrigGor'));
+    // Grinden först, med vägen dit (2026-10-10).
+    const behov = d.lage?.behov || behovNu();
+    if (!behov.klar) delar.unshift(`**${t('behov.av', { vad: behovVad(behov) })}**`);
     // Tillgång utan uppdrag är en tillgång som inte gör något. Erbjud det
     // som de flesta menar när de ger den: håll koll åt mig.
     const oanvanda = tillgang.filter(([, , typ]) => typ !== 'bevakning' && !anvands(typ).length);
     const val = [];
     if (oanvanda.length) val.push({ id: 'koll', text: t('agent.hallKoll', { kallor: ochLista(oanvanda.map(([n]) => n.toLowerCase())) }) });
-    val.push({ id: 'sla', text: t('fynd.tittaEfterNu') }, { id: 'klart', text: t('allmant.klart') });
+    // Av: inga erbjudanden om att hålla koll eller titta nu — vägen dit i stället.
+    if (behov.klar) val.push({ id: 'sla', text: t('fynd.tittaEfterNu') });
+    else val.splice(0, val.length, ...behov.saknar.map(x => ({ id: `behov:${x}`, text: behovKnapptext(x) })));
+    val.push({ id: 'klart', text: t('allmant.klart') });
     const v = await maximusFragar(delar.join('\n\n'), val);
+    if (v.startsWith('behov:')) return tillBehov(v.slice(6));
     if (v === 'koll') {
       const kallor = oanvanda.map(([, , typ]) => typ);
       const r2 = await post('/api/uppdrag', {
@@ -9382,7 +9734,7 @@ function maximusVisar(text, del) {
 /// Ett fält under repliken, för det som inte är ett val: en nyckel. Det du
 /// skriver visas aldrig som din replik — bara att du lagt in den.
 function maximusFalt(text, { placeholder = '', knapp = t('allmant.ok'), hoppa = null } = {}) {
-  return new Promise(los => {
+  return vantaGuiden(new Promise(los => {
     manus.ko = manus.ko.then(async () => {
       const rad = { av: 'maximus', text: '' };
       manus.rader.push(rad);
@@ -9398,7 +9750,36 @@ function maximusFalt(text, { placeholder = '', knapp = t('allmant.ok'), hoppa = 
       rita();
       setTimeout(() => in_.focus(), 30);
     });
-  });
+  }));
+}
+
+/// En textruta under repliken, för det som skrivs med egna ord: profilen
+/// (Auro 2026-10-10: "inte bara LinkedIn eller CV"). Det du skriver står
+/// sedan som din replik. ⌘↩ skickar, som knappen.
+function maximusText(text, { etikett = '', placeholder = '', knapp = t('allmant.ok'), hoppa = null } = {}) {
+  return vantaGuiden(new Promise(los => {
+    manus.ko = manus.ko.then(async () => {
+      const rad = { av: 'maximus', text: '' };
+      manus.rader.push(rad);
+      await stromma(rad, text);
+      if (manus.resten) return;
+      const f = el('form', 'forsta-falt forsta-text');
+      const id = `forsta-text-${Date.now()}`;
+      const lbl = el('label', 'forsta-text-etikett', { htmlFor: id, textContent: etikett || text });
+      const in_ = el('textarea', null, { id, rows: 5, placeholder, maxLength: 4000, spellcheck: true });
+      const ok = el('button', 'primar', { type: 'submit', textContent: knapp });
+      const knappar = el('div', 'forsta-text-knappar');
+      knappar.append(ok);
+      f.append(lbl, in_, knappar);
+      const klar = v => { rad.del = null; manus.rader.push({ av: 'du', text: v || hoppa }); rita(); los(v); };
+      f.onsubmit = e => { e.preventDefault(); const v = in_.value.trim(); if (v) klar(v); else in_.focus(); };
+      in_.onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); f.requestSubmit(); } };
+      if (hoppa) { const h = el('button', 'tyst', { type: 'button', textContent: hoppa }); h.onclick = () => klar(null); knappar.append(h); }
+      rad.del = f;
+      rita();
+      setTimeout(() => in_.focus(), 30);
+    });
+  }));
 }
 
 /// Knappar under senaste repliken. Löftet löses med det valda.
@@ -9409,11 +9790,13 @@ function maximusFalt(text, { placeholder = '', knapp = t('allmant.ok'), hoppa = 
 const JA_NEJ = () => [{ id: 'ja', text: t('allmant.ja') }, { id: 'nej', text: t('allmant.nej') }];
 
 function maximusFragar(text, val, { under } = {}) {
-  return new Promise(los => {
+  return vantaGuiden(new Promise(los => {
     manus.ko = manus.ko.then(async () => {
       const rad = { av: 'maximus', text: '', under };
       manus.rader.push(rad);
       await stromma(rad, text);
+      // Hoppades resten över medan texten strömmade: inga knappar.
+      if (manus.resten) return;
       // Knapparna först när texten står färdig.
       rad.val = val.map(v => (typeof v === 'string' ? { text: v, id: v } : v));
       rad.valj = v => {
@@ -9425,7 +9808,7 @@ function maximusFragar(text, val, { under } = {}) {
       };
       rita();
     });
-  });
+  }));
 }
 
 /// Frågar om ETT tillstånd, i chatten, och sparar beslutet med sitt skäl.
@@ -9434,10 +9817,12 @@ function maximusFragar(text, val, { under } = {}) {
 /// Ett ja prövas på riktigt: kontona, kalendrarna eller mapparna läses, och
 /// det är DÅ macOS frågar om lov. Går det inte sägs varför, och ingenting
 /// sparas som påslaget som inte fungerar.
-async function fragaTillstand(tt) {
+async function fragaTillstand(tt, { hoppa = false } = {}) {
   const svar = await maximusFragar(`**${tt.namn}** — ${tt.vad}.
 
-${tt.fraga}`, JA_NEJ());
+${tt.fraga}`, [...JA_NEJ(), ...(hoppa ? [{ id: 'hoppa', text: t('forsta.hoppaOverTillgang') }] : [])]);
+  // Hela steget hoppas över i guiden; inget beslut sparas.
+  if (svar === 'hoppa') return 'hoppa';
   const d = {};
   // Meddelanden och samtal: macOS Full skivåtkomst. Maximus prövar, och
   // saknas rätten öppnar den rätt ruta och väntar på att du kommer tillbaka.
@@ -9548,7 +9933,7 @@ ${tt.fraga}`, JA_NEJ());
       ? t('tillstand.jaEfterskrift', { skal: b.beslut.skal })
       : b.beslut.skal);
     return b.beslut;
-  } catch (e) { maximusSager(e.message, { fel: true }); return null; }
+  } catch (e) { if (e === RESTEN) throw e; maximusSager(e.message, { fel: true }); return null; }
 }
 
 /// Manuset i de tre rösterna (lib/persona.mjs: saklig, tydlig, kaxig).
@@ -9596,6 +9981,87 @@ function valjEnFil(accept) {
 
 /// Knapparna i en replik som inte längre väntar på svar tas bort.
 function tystaKnappar() { for (const r of manus.rader) if (r.valj) { r.valj = null; r.val = null; } rita(); }
+
+// ── Hoppa över resten (Auro 2026-10-10) ──────────────────────────────────
+// Inget steg är tvingande, och guiden går att avsluta var som helst. Det
+// som väntar — en fråga, ett fält, analysen, modellen — tävlar mot ett löfte
+// som faller med RESTEN, och forstaSteg går då direkt till tack. Villkoren
+// och modellen före guiden rörs inte.
+const RESTEN = new Error('resten');
+let restenLofte = null, restenLos = null;
+const resten = () => (restenLofte ||= new Promise((_, nej) => { restenLos = () => nej(RESTEN); }));
+/// Är vi i guiden (inte i en rundtur på egen hand, inte i ett samtal)?
+const iGuiden = () => manus.pagar === true && !manus.bara && !stat.aktiv && !manus.session;
+/// Väntar på `p` — eller, i guiden, på att resten hoppas över.
+const vantaGuiden = p => (iGuiden() ? Promise.race([p, resten()]) : p);
+function hoppaOverResten() {
+  if (!iGuiden() || manus.resten) return;
+  manus.resten = true;
+  for (const r of manus.rader) { r.valj = null; r.val = null; r.del = null; }
+  arbetarSignal(false);
+  manus.rader.push({ av: 'du', text: t('forsta.hoppaOverResten') });
+  rita();
+  // Väntade något går det nu till tack; mellan två steg ser forstaSteg flaggan.
+  restenLos?.();
+}
+function nollaResten() { manus.resten = false; restenLofte = null; restenLos = null; }
+
+// ── Vad agenten behöver (Auro 2026-10-10) ────────────────────────────────
+// Regeln bor i public/behov.js och är densamma som serverns grind: utan
+// profil och en källa arbetar agenten inte alls. Här: hur det sägs, och
+// knapparna till exakt rätt inställning.
+
+/// Läget, ur inställningarna här. laddaLista() håller dem i takt med
+/// servern när de skiljer sig (ett lov givet i en annan väg).
+const behovNu = () => agentBehover(installningar);
+const behovVad = b => ochLista(b.saknar.map(x => t(x === 'profil' ? 'behov.profil' : 'behov.kalla')));
+const behovVar = b => ochLista(b.saknar.map(x => t(x === 'profil' ? 'behov.varProfil' : 'behov.varKalla')));
+const behovKnapptext = x => t(x === 'profil' ? 'behov.knappProfil' : 'behov.knappKalla');
+const tillBehov = x => visaPlats(`inst:${BEHOV_VAR[x]}`);
+function behovKnappar(b, klass = 'tyst liten') {
+  return b.saknar.map(x => {
+    const k = el('button', klass, { type: 'button', textContent: behovKnapptext(x) });
+    k.dataset.behov = x;
+    k.onclick = () => tillBehov(x);
+    return k;
+  });
+}
+/// "Agenten är av — den behöver …", där agenten visas: uppdragen och
+/// Agentens samtal. Står kvar tills det är gjort; den går inte att stänga.
+function behovBand(b = behovNu()) {
+  const d = el('div', 'behov-band');
+  d.setAttribute('role', 'status');
+  d.append(el('span', 'behov-text', { textContent: t('behov.av', { vad: behovVad(b) }) }), ...behovKnappar(b));
+  return d;
+}
+/// Hem-kortet: lugnt, och borta när det är gjort eller när du stängt det.
+function ritaBehovKort() {
+  const b = behovNu();
+  if (b.klar || installningar.behovStangt) return null;
+  const k = el('section', 'hem-kort behovkort');
+  const rubrik = el('h3', 'behov-rubrik', { id: 'behovkort-rubrik',
+    textContent: t(b.saknar.length > 1 ? 'behov.hemBada' : b.saknar[0] === 'profil' ? 'behov.hemProfil' : 'behov.hemKalla') });
+  k.setAttribute('aria-labelledby', rubrik.id);
+  const topp = el('div', 'hem-topp');
+  topp.append(el('span', 'ett-sort', { textContent: t('lista.agenten') }), el('span', 'hem-om', { textContent: t('behov.statusAv') }));
+  const rad = el('div', 'behov-knappar');
+  const satt = el('button', 'hem-knapp', { type: 'button', textContent: t('behov.sattUpp') });
+  satt.dataset.behov = b.saknar[0];
+  satt.onclick = () => tillBehov(b.saknar[0]);
+  rad.append(satt, ...behovKnappar({ saknar: b.saknar.slice(1) }));
+  const dolj = el('button', 'tyst liten behov-dolj', { type: 'button', textContent: t('behov.dolj') });
+  dolj.onclick = async () => { k.remove(); await sparaInstallningar({ behovStangt: true }).catch(() => {}); };
+  rad.append(dolj);
+  k.append(topp, rubrik, el('p', 'hem-fot', { textContent: t('behov.hemOm') }), rad);
+  return k;
+}
+/// Ett besked i samtalet, med vägen dit: när du ber agenten om något den
+/// inte kan göra än.
+async function behovBesked(b = behovNu()) {
+  const v = await maximusFragar(t('behov.av', { vad: behovVad(b) }),
+    [...b.saknar.map(x => ({ id: x, text: behovKnapptext(x) })), { id: 'ok', text: t('allmant.okej') }]);
+  if (BEHOV_VAR[v]) tillBehov(v);
+}
 
 /// En fil till Du (Fas 49): LinkedIn-exporten eller ett cv.
 const duFil = fil => fetch('/api/du/las', { method: 'POST', headers: { 'X-Maximus-Local': '1', 'X-Maximus-Namn': encodeURIComponent(fil.name) }, body: fil })
@@ -9655,7 +10121,8 @@ async function vantaPaModellen() {
       rad.text = t('manus.modellenStartar', { sek });
     }
     rita();
-    await sov(1500);
+    // Hoppas resten över väntar guiden inte på modellen.
+    try { await vantaGuiden(sov(1500)); } catch (e) { rad.under = null; arbetarSignal(false); throw e; }
   }
   rad.text = t('manus.modellenRedo');
   rad.under = null;
@@ -9674,7 +10141,7 @@ async function forstaDu(gor, vad) {
   // Det analysen faktiskt letar efter, i den ordning prompten frågar (se
   // profilPrompt i lib/du.mjs) — inte påhittade steg.
   insikter([t('du.insikter7'), t('du.insikter6'), t('du.insikter5'), t('du.insikter4'), t('du.insikter3'), t('du.insikter2'), t('du.insikter')]);
-  const d = await gor().finally(() => arbetarSignal(false));
+  const d = await vantaGuiden(gor()).finally(() => arbetarSignal(false));
   if (d.error || !d.forslag) {
     maximusSager(t('du.ingetAttGaPa', { fel: d.error || t('du.ingetAttGaPaFel') }), { fel: Boolean(d.error) });
     return 'fraga';
@@ -9685,11 +10152,28 @@ async function forstaDu(gor, vad) {
     + (d.kalla === 'linkedin' ? '\n\n' + t('du.urExport', { roller: a.roller || 0, inlagg: a.inlagg || 0, reaktioner: a.reaktioner || 0 }) : ''),
     [{ id: 'ja', text: t('du.stammer') }, { id: 'nej', text: t('du.inteRiktigt') }]);
   if (ja === 'nej') return 'fraga';
-  await sparaInstallningar({ profil: { ...(installningar.profil || {}), ...Object.fromEntries(Object.entries(f).filter(([, x]) => x)) } });
+  await sparaInstallningar({ profil: { ...(installningar.profil || {}), ...Object.fromEntries(Object.entries(f).filter(([k, x]) => x && k !== 'egen')) } });
   post('/api/exempel/skriv', {}).catch(() => {});
   await post('/api/grund', { sort: 'du' }).catch(() => {});
   laddaLista();
   maximusSager(t('du.sparat'));
+  return 'lopande';
+}
+
+/// Din text (2026-10-10): sparas direkt i profilen. Svarar modellen
+/// analyseras den som cv:t, med samma "Så här förstår jag dig". Svarar den
+/// inte än väntar guiden inte på den — analysen görs under Du → Profil.
+async function forstaDuText(text) {
+  tystaKnappar();
+  const u = await hamta('/api/uppstart').catch(() => ({}));
+  if (u.grind) return forstaDu(() => post('/api/du/text', { text }).catch(e => ({ error: e.message })), t('du.dinText'));
+  const r = await post('/api/du/text', { text, analysera: false }).catch(e => ({ error: e.message }));
+  if (r.error) { maximusSager(r.error, { fel: true }); return 'fraga'; }
+  installningar = { ...installningar, profil: { ...(installningar.profil || {}), egen: text } };
+  post('/api/exempel/skriv', {}).catch(() => {});
+  await post('/api/grund', { sort: 'du' }).catch(() => {});
+  laddaLista();
+  maximusSager(t('du.textSparadSenare'));
   return 'lopande';
 }
 
@@ -9700,9 +10184,17 @@ const FORSTA = {
     text: () => REPLIKER.saklig.hej,
     under: () => REPLIKER.saklig.hejUnder,
     gor: async () => {
-      const v = await maximusFragar(t('du.ellerValjHar'), [{ id: 'fil', text: t('du.bifogaCv') }, { id: 'safari', text: t('du.lasProfilSafari') }]);
+      // Tre likvärdiga vägar och en väg förbi (Auro 2026-10-10).
+      const v = await maximusFragar(t('du.valjSatt'), [{ id: 'skriv', text: t('du.valSkrivSjalv') }, { id: 'fil', text: t('du.valBifogaCv') },
+        { id: 'safari', text: t('du.valLinkedin') }, { id: 'hoppa', text: t('allmant.hoppaOver') }]);
+      if (v === 'hoppa') return 'lopande';
+      if (v === 'skriv') {
+        const text = await maximusText(t('du.skrivFraga'), { etikett: t('du.skrivEtikett'), placeholder: t('du.skrivPlatshallare'),
+          knapp: t('du.skrivKlar'), hoppa: t('allmant.hoppaOver') });
+        return text ? forstaDuText(text) : 'lopande';
+      }
       if (v === 'fil') {
-        const fil = await valjEnFil('.zip,.pdf,.docx,.doc,.odt,.rtf,.txt,.md');
+        const fil = await vantaGuiden(valjEnFil('.zip,.pdf,.docx,.doc,.odt,.rtf,.txt,.md'));
         if (!fil) { tystaKnappar(); maximusSager(t('du.ingenFilVald')); return 'fraga'; }
         return forstaDu(() => duFil(fil), fil.name);
       }
@@ -9720,8 +10212,7 @@ const FORSTA = {
       await manus.ko;
       arbetarSignal(true);
       insikter([t('du.insikterSafari4'), t('du.insikterSafari3'), t('du.insikterSafari2'), t('du.insikterSafari')], 2500);
-      const p = await post('/api/safari/oppna-profil', {}).catch(e => ({ error: e.message }));
-      arbetarSignal(false);
+      const p = await vantaGuiden(post('/api/safari/oppna-profil', {}).catch(e => ({ error: e.message }))).finally(() => arbetarSignal(false));
       if (p.error) { maximusSager(t('allmant.detGickInte', { fel: p.error }), { fel: true }); return 'fraga'; }
       if (p.inloggning || !p.profil) {
         const v = await maximusFragar(p.inloggning
@@ -9743,12 +10234,9 @@ const FORSTA = {
       tystaKnappar();
       const tt = text.trim();
       if (/^https?:\/\/\S+$/i.test(tt)) return forstaDu(() => post('/api/du/lank', { url: tt }).catch(e => ({ error: e.message })), tt);
-      const profil = { ...(installningar.profil || {}), vem: tt.slice(0, 400) };
-      await sparaInstallningar({ profil });
-      post('/api/exempel/skriv', {}).catch(() => {});
-      await post('/api/grund', { sort: 'du' }).catch(() => {});
-      laddaLista();
-      return 'lopande';
+      // En mening i rutan är din egen text, som "Skriv själv": analyseras
+      // när modellen svarar, sparad direkt annars — inte avkapad i `vem`.
+      return forstaDuText(tt);
     },
   },
   // Följa löpande (Fas 49): ett lov, som alla andra. Allt stannar här.
@@ -9756,7 +10244,7 @@ const FORSTA = {
     text: null,
     gor: async () => {
       const v = await maximusFragar(t('forsta.lopandeFraga'),
-        [{ id: 'ja', text: t('forsta.jaFoljLopande') }, { id: 'nej', text: t('allmant.inteNu') }], { under: t('forsta.andraUnderAgenten') });
+        [{ id: 'ja', text: t('forsta.jaFoljLopande') }, { id: 'nej', text: t('allmant.hoppaOver') }], { under: t('forsta.andraUnderAgenten') });
       // Ja omfattar LinkedIn-flödet i Safari, som frågan säger (Fas 47 del
       // 2) — men bara LinkedIn-flikarna. Att läsa vilken flik som helst är
       // ett eget ja under Agenten, och följer inte med här.
@@ -9772,9 +10260,10 @@ const FORSTA = {
       if (!roster.length) return 'utgaende';
       const v = await maximusFragar(t('forsta.rostFraga') + '\n\n'
         + roster.map(p => t('forsta.rostRad', { namn: p.namn, exempel: p.exempel })).join('\n'),
-        roster.map(p => ({ id: p.id, text: p.namn })),
+        [...roster.map(p => ({ id: p.id, text: p.namn })), { id: 'hoppa', text: t('allmant.hoppaOver') }],
         { under: t('forsta.rostUnder') });
-      await sparaInstallningar({ persona: v });
+      // Förbi: förvalet står kvar.
+      if (v !== 'hoppa') await sparaInstallningar({ persona: v });
       return 'utgaende';
     },
   },
@@ -9842,7 +10331,8 @@ const FORSTA = {
       for (const tt of forsta) {
         if (!tt.finns) { maximusSager(tt.inte); continue; }
         if (tt.pa || besvarade.has(tt.id)) continue;
-        await fragaTillstand(tt);
+        // "Hoppa över tillgångarna" står vid varje fråga och tar hela steget.
+        if (await fragaTillstand(tt, { hoppa: true }) === 'hoppa') break;
       }
       return 'grund';
     },
@@ -9857,9 +10347,12 @@ const FORSTA = {
       // Du får sitt löpande uppdrag nu, när inkorgen kanske är påslagen.
       await post('/api/grund', { sort: 'du' }).catch(() => {});
       if (!appar.length) { laddaLista(); return 'genomgang'; }
-      for (const id of appar) await post('/api/grund', { sort: id }).catch(() => {});
+      // Skanningen är ett agentvarv: utan profil säger grinden nej, och då
+      // sägs inte att den sker.
+      let n = 0;
+      for (const id of appar) if (await post('/api/grund', { sort: id }).catch(() => null)) n++;
       laddaLista();
-      maximusSager(t('forsta.grunden', { n: appar.length }));
+      if (n) maximusSager(t('forsta.grunden', { n }));
       return 'genomgang';
     },
   },
@@ -9872,8 +10365,10 @@ const FORSTA = {
     gor: async () => {
       const a = installningar.agent || {};
       if (!a.epost?.konto && !a.kalender && !a.paminnelser && !a.anteckningar?.mapp) return 'rundtur';
+      // Genomgången är ett agentvarv: utan det agenten behöver erbjuds den inte.
+      if (!behovNu().klar) return 'rundtur';
       const v = await maximusFragar(t('forsta.genomgangFraga'),
-        [{ id: 'ja', text: t('forsta.jaGaIgenom') }, { id: 'nej', text: t('allmant.inteNu') }]);
+        [{ id: 'ja', text: t('forsta.jaGaIgenom') }, { id: 'nej', text: t('allmant.hoppaOver') }]);
       if (v === 'ja') {
         const r = await post('/api/agent/forsta', {}).catch(e => ({ error: e.message }));
         if (r.error) { maximusSager(t('allmant.detGickInte', { fel: r.error }), { fel: true }); return 'rundtur'; }
@@ -9886,11 +10381,11 @@ const FORSTA = {
         const t0 = Date.now();
         insikt(t('forsta.insiktLaser'));
         while (Date.now() - t0 < 8 * 60e3) {
-          const s = await hamta(`/api/sessioner/${r.session}`).catch(() => null);
+          const s = await vantaGuiden(hamta(`/api/sessioner/${r.session}`).catch(() => null)).catch(e => { arbetarSignal(false); throw e; });
           gtur = s?.turer?.find(tt => tt.id === r.tur);
           if (gtur?.insikt) insikt(gtur.insikt);
           if (gtur?.status === 'klar') break;
-          await sov(2500);
+          await vantaGuiden(sov(2500)).catch(e => { arbetarSignal(false); throw e; });
         }
         arbetarSignal(false);
         if (gtur?.status !== 'klar') {
@@ -9954,8 +10449,13 @@ ${x.text}
     sist: true,
     get titel() { return t('rundtur.titel'); },
   },
+  // Tack. Saknar agenten något sägs det här, en gång och sakligt, med var
+  // det ordnas — samma regel som Hem-kortet och serverns grind.
   tack: {
-    text: () => replik('tack'),
+    text: () => {
+      const b = behovNu();
+      return replik('tack') + (b.klar ? '' : `\n\n${t('behov.tackSaknas', { vad: behovVad(b), var: behovVar(b) })}`);
+    },
     sist: true,
   },
 };
@@ -10004,7 +10504,13 @@ function startaRundtur() {
 }
 
 async function forstaSteg(namn) {
+  // Resten hoppades över mellan två steg: direkt till tack.
+  if (manus.resten && !manus.bara && !FORSTA[namn]?.sist) namn = 'tack';
   manus.steg = namn;
+  // Vilket varv detta är. Ett svar i rutan kan ta guiden vidare medan en
+  // fråga i samma steg står obesvarad; faller den frågan senare (resten
+  // hoppades över) ska den inte starta ett andra tack.
+  const varv = manus.stegNr = (manus.stegNr || 0) + 1;
   const s = FORSTA[namn];
   // Rundturen på egen hand rör inte onboardingens läge.
   if (!manus.bara) await sparaInstallningar({ forsta: { steg: namn, klar: Boolean(s.sist) } }).catch(() => {});
@@ -10016,6 +10522,7 @@ async function forstaSteg(namn) {
     // att fortsätta i (Auro 2026-10-04). Efter att sista repliken strömmat.
     await manus.ko;
     manus.pagar = 'klar';
+    nollaResten();
     try {
       const r = await post('/api/sessioner/manus', { titel: s.titel || t('forsta.valkommenTitel'),
         rader: manus.rader.filter(x => x.text).map(x => ({ av: x.av, text: x.text })) });
@@ -10029,8 +10536,8 @@ async function forstaSteg(namn) {
     return;
   }
   if (s.gor) {
-    const nasta = await s.gor().catch(e => { maximusSager(e.message, { fel: true }); return 'tack'; });
-    if (nasta) await forstaSteg(nasta);
+    const nasta = await s.gor().catch(e => { if (e !== RESTEN) maximusSager(e.message, { fel: true }); return 'tack'; });
+    if (nasta && manus.stegNr === varv) await forstaSteg(nasta);
   }
 }
 
@@ -10047,6 +10554,7 @@ async function startaForsta() {
   }
   manus.pagar = true;
   manus.rader = [];
+  nollaResten();
   stat.aktiv = null; stat.session = null;
   visaVy('samtal');
   // Modellen väcks direkt, så att den är varm när analysen av vem du är
@@ -10076,12 +10584,16 @@ async function forstaSvar(text) {
   }
   manus.rader.push({ av: 'du', text });
   rita();
-  const nasta = await s.svar(text).catch(e => { maximusSager(e.message, { fel: true }); return null; });
+  // Svaret tar över steget: frågan som stod obesvarad leder inte vidare.
+  manus.stegNr = (manus.stegNr || 0) + 1;
+  const nasta = await s.svar(text).catch(e => { if (e === RESTEN) return 'tack'; maximusSager(e.message, { fel: true }); return null; });
   if (nasta) await forstaSteg(nasta);
   return true;
 }
 
 function ritaForsta(mitt) {
+  // Ett fält du skriver i flyttas med när samtalet ritas om; fokus följer med.
+  const fokus = document.activeElement?.closest?.('.forsta-falt') ? document.activeElement : null;
   for (const r of manus.rader) {
     const d = el('div', `tur forsta${r.av === 'du' ? ' fran-dig' : ''}`);
     if (r.av === 'du') d.append(ritaFraga(r.text));
@@ -10118,6 +10630,7 @@ function ritaForsta(mitt) {
       // din replik under.
       if (r.val && r.valj) {
         const k = el('div', 'forsta-val');
+        k.setAttribute('role', 'group');
         for (const v of r.val) {
           // Det första valet är huvudvalet ("Ja", "Ja, gå igenom"); resten är tysta.
           const b = el('button', v.id === 'ja' || v === r.val[0] && /^(Ja|Yes)\b/.test(v.text) ? 'primar' : 'tyst', { type: 'button', textContent: v.text });
@@ -10130,6 +10643,13 @@ function ritaForsta(mitt) {
     }
     mitt.append(d);
   }
+  // Ett diskret sätt ut ur hela guiden, alltid där (Auro 2026-10-10).
+  if (iGuiden() && !manus.resten && !FORSTA[manus.steg]?.sist) {
+    const h = el('button', 'tyst liten forsta-resten', { type: 'button', textContent: t('forsta.hoppaOverResten') });
+    h.onclick = hoppaOverResten;
+    mitt.append(h);
+  }
+  if (fokus?.isConnected && document.activeElement !== fokus) fokus.focus({ preventScroll: true });
   rullaNer(true);
 }
 
@@ -10280,6 +10800,24 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey && webbgrind.niva < 3) { e.preventDefault(); svaraWebb(true); }
 });
 
+/// Var i appen du är, för raden "Berörd funktion". Appen vet det; modellen
+/// gissar det aldrig.
+function berordFunktion() {
+  if (vyn === 'hjalp') return 'hjalp';
+  if (vyn === 'installningar') return 'installningar';
+  if (document.body.classList.contains('i-uppdragen')) return 'uppdrag';
+  return 'samtal';
+}
+
+/// Erbjudandet: en rad ovanför rutan. Den skickar ingenting och öppnar
+/// ingenting av sig själv; den står tills du svarar eller skriver nästa sak.
+function erbjudRapport(fran) {
+  const rad = $('#felrad');
+  rad.hidden = false;
+  $('#felrad-ja').onclick = () => { rad.hidden = true; oppnaFelrapport({ fran, funktion: berordFunktion() }); };
+  $('#felrad-nej').onclick = () => { rad.hidden = true; ruta.focus(); };
+}
+
 $('#komp').addEventListener('submit', e => {
   e.preventDefault();
   // Arbetar den är knappen ett stopp, inte ett skicka.
@@ -10293,6 +10831,20 @@ $('#komp').addEventListener('submit', e => {
       ruta.value = t('uppdrag.hallKollPa', { vad: `${tt.charAt(0).toLowerCase()}${tt.slice(1)}` });
     }
   }
+  // "Det här fungerar inte" (felrapporten). Ber du om en rapport öppnas
+  // frågorna; säger du att något inte fungerar ERBJUDER Maximus hjälp och
+  // frågan går vidare som vanligt. Ingenting skickas härifrån. Bara det du
+  // själv skrivit i rutan prövas, och bara här — inte svar, dokument eller
+  // hämtade sidor (test/felrapport.test.mjs håller det så).
+  const felanmalan = arFelanmalan(ruta.value);
+  if (felanmalan?.sort === 'begaran') {
+    const fran = ruta.value.trim();
+    ruta.value = '';
+    ruta.dispatchEvent(new Event('input'));
+    return oppnaFelrapport({ fran, funktion: berordFunktion() });
+  }
+  if (felanmalan) erbjudRapport(ruta.value.trim());
+  else $('#felrad').hidden = true;
   // Hjälpen går sin egen väg: ingen grind, ingen maskering, ingen liggare.
   if (vyn === 'hjalp') {
     const f = ruta.value.trim();
@@ -10802,6 +11354,9 @@ $('#appmeny').onclick = e => {
       () => $('#oppna-hjalp').click()),
     val('kugghjul', t('appmeny.installningar'), t('appmeny.installningarOm'),
       () => $('#oppna-installningar').click()),
+    // Formuläret, inte samtalet: det ska fungera när modellen inte gör det.
+    val('penna', t('appmeny.rapportera'), t('appmeny.rapporteraOm'),
+      () => oppnaFelrapport({ formular: true, funktion: berordFunktion() })),
   );
   m.append(el('hr'));
   m.append(
@@ -11895,6 +12450,7 @@ new EventSource('/api/handelser').onmessage = e => {
   const h = JSON.parse(e.data);
   if (h.typ === 'lista') laddaLista();
   // Modellen kan komma och gå medan appen står öppen — etiketten ska följa med.
+  else if (h.typ === 'svar') svarHant(h);
   else if (h.typ === 'handling') {
     // Ett förslag som besvarats någon annanstans, eller just skapats.
     const finns = document.querySelector(`[data-handling="${CSS.escape(h.handling.id)}"]`);

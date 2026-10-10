@@ -17,7 +17,8 @@ await skriv(p, 'Jurist på ett bolag');
 ok((await api('/api/profil')).profil?.vem === 'Jurist på ett bolag', 'och frågan står kvar att svara på');
 
 // /help i ett tomt samtal.
-await api('/api/installningar', { forsta: { steg: 'tack', klar: true } });
+// Profil och en källa: agentens grind (2026-10-10) står öppen för /uppdrag.
+await api('/api/installningar', { forsta: { steg: 'tack', klar: true }, profil: { vem: 'Provare' }, agent: { bevakning: true } });
 await p.reload({ waitUntil: 'networkidle' });
 await p.waitForTimeout(700);
 await skriv(p, '/help');

@@ -6,7 +6,7 @@
 
 import { createServer } from 'node:http';
 import { createServer as createServerTLS } from 'node:https';
-import { readFile, writeFile, mkdir, readdir, unlink, stat, access, open, realpath, lstat, constants } from 'node:fs/promises';
+import { readFile, writeFile, appendFile, mkdir, readdir, unlink, stat, access, open, realpath, lstat, constants } from 'node:fs/promises';
 import { join, dirname, extname, sep, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
@@ -131,10 +131,12 @@ import * as Attest from './lib/attest.mjs';
 import * as Villkor from './lib/villkor.mjs';
 import * as Start from './lib/start.mjs';
 import * as Tillstand from './lib/tillstand.mjs';
+import { agentBehover } from './public/behov.js';
 import * as Funktioner from './lib/funktioner.mjs';
 import * as Aterkommer from './lib/aterkommer.mjs';
 import * as Fyndsamtal from './lib/fyndsamtal.mjs';
 import * as Hjalp from './lib/hjalp.mjs';
+import * as Felrapport from './lib/felrapport.mjs';
 import * as Djup from './lib/djup.mjs';
 import * as Plugins from './lib/plugins.mjs';
 import { kris, stod } from './lib/stod.mjs';
@@ -162,6 +164,9 @@ import * as Nyheter from './lib/nyheter.mjs';
 import * as Grunden from './lib/grunden.mjs';
 import * as Handlingar from './lib/handlingar.mjs';
 import { utkast as mejlutkast } from './lib/utkastmail.mjs';
+import * as Svar from './lib/svar.mjs';
+import * as SvarMail from './lib/svarmail.mjs';
+import { skapaKo } from './lib/svarsko.mjs';
 import { skapaVerktyg } from './lib/verktyg.mjs';
 import { verktygsanrop } from './lib/lokal.mjs';
 import { sok as webbSokRa, hamtaRa, tillatenAdress, bildSomData } from './lib/webb.mjs';
@@ -234,6 +239,44 @@ await mkdir(join(dataDir, 'liggare'), { recursive: true });
 const maximus = new Maximus(dataDir);
 await maximus.ladda().catch(() => {});
 if (maximus.skyddat) await maximus.lasUppUrNyckelring().catch(() => {});
+
+/// Felrapporterna (lib/felrapport.mjs). Utkasten och kvittona ligger i
+/// Maximus som allt annat, krypterade när ett lösenord är satt.
+///
+/// Mottagaren är tom tills den är driftsatt, och bara https godtas (eller
+/// loopback, för provet): en rapport ska inte kunna gå okrypterad över ett nät.
+const rapportadress = (() => {
+  try {
+    const u = new URL(Hemvist.RAPPORTER);
+    return u.protocol === 'https:' || (u.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)) ? u.href : '';
+  } catch { return ''; }
+})();
+const rapportfil = join(dataDir, 'felrapporter.json');
+/// E-postvägens godkända paket: nyckel `ägare:hash`, tio minuter i minnet.
+const mejlGodkanda = new Map();
+/// Lagret mot Mail. MAXIMUS_PROV_MEJL (bara prov) skriver vad som hade körts
+/// till en fil i stället, så att webbläsarprovet inte öppnar riktiga mejl.
+const mejllager = process.env.MAXIMUS_PROV_MEJL
+  ? Object.fromEntries(['mail', 'oppna', 'urklipp'].map(vad => [vad, async v => {
+    await appendFile(process.env.MAXIMUS_PROV_MEJL, `${JSON.stringify({ vad, v })}\n`);
+    if (vad === 'mail' && process.env.MAXIMUS_PROV_MEJL_NERE) throw new Error('Mail svarar inte (provet)');
+  }]))
+  : Felrapport.MACLAGER;
+const rapportor = Felrapport.rapportor({
+  adress: rapportadress,
+  lagring: {
+    las: async () => JSON.parse(await maximus.lasFil(rapportfil)),
+    skriv: d => maximus.skrivFil(rapportfil, JSON.stringify(d)),
+  },
+  // Varje försök står i liggaren med exakt kroppen som gick ut. Ett försök
+  // som inte fick kvitto är också trafik.
+  liggare: ({ kropp, kvitto, fel, agare, sekunder }) => {
+    const ut = JSON.stringify(kropp);
+    return liggare({ frontier: tx('srv.felrapport.liggare.mottagare'), vag: 'rapport', skickat: ut,
+      mottaget: kvitto ? tx('srv.felrapport.liggare.mottaget', { nummer: kvitto.nummer }) : tx('srv.felrapport.liggare.misslyckades', { fel: fel?.message || '' }),
+      tecken: ut.length, sekunder, anvandare: agare && agare !== 'en' ? agare : null, session: null, aktor: tx('srv.helig.duTitel') });
+  },
+});
 
 /// Utökningen, inkopplad; null utan en. Sammanhanget är funktioner, för
 /// flera av namnen deklareras längre ned och läses först när ett anrop kommer.
@@ -754,6 +797,15 @@ const AGENT_AV = { epost: null, kalender: null, bevakning: false,
   stadar: true, tempo: 'normal' };
 const agentInst = () => ({ ...AGENT_AV, ...(installningar.agent || {}) });
 
+/// Vad agenten minst behöver (2026-10-10): profilen och en källa. Saknas
+/// något arbetar den inte alls — inga halva varv, inga tysta fel. Regeln
+/// bor i public/behov.js och läses av gränssnittet också.
+const agentBehov = () => agentBehover({ profil: installningar.profil, agent: agentInst() });
+/// Beskedet när agenten är av, på det språk som gäller.
+const behovText = (b = agentBehov()) => tx('srv.behov.av', { vad: ochLista(b.saknar.map(x => tx(`srv.behov.${x}`))) });
+/// 409 med beskedet och vad som saknas, för vägarna som annars hade kört.
+const behovSvar = (res, b = agentBehov()) => json(res, 409, { error: behovText(b), behov: b });
+
 /// Läser agentens tillgång ur det som kommit in. Fält för fält.
 ///
 /// Det som inte går att känna igen blir av. En källa agenten inte fått är
@@ -808,12 +860,15 @@ async function lasKalla(k, { nu = new Date() } = {}) {
   const a = agentInst();
   if (k.typ === 'epost') {
     if (!a.epost?.konto) throw Agent.avstangd();
-    const brev = await Post.brev(a.epost.konto, { lada: a.epost.lada || 'INBOX', antal: 60, utskick: Boolean(k.nyhetsbrev) });
+    const brev = await Post.brev(a.epost.konto, { lada: a.epost.lada || 'INBOX', antal: 60, utskick: Boolean(k.nyhetsbrev) || Svar.forslagsLage(installningar) !== 'av' });
     // Nyheternas källa (2026-10-09): bara utskick, aldrig personlig post —
     // brev med List-Unsubscribe, eller en avsändare som är ett utskick.
     if (k.nyhetsbrev) return brev.filter(b => b.utskick || Nyheter.arNyhetsbrev(b.fran, { avregistrering: b.utskick }))
       .map(b => ({ id: b.id, titel: b.amne, fran: b.fran, tid: b.tid, text: b.amne, brev: { konto: a.epost.konto, id: b.id } }));
-    return brev.map(b => ({ id: b.id, titel: b.amne, fran: b.fran, tid: b.tid, text: b.amne }));
+    // Var brevet ligger (2026-10-10), så att agenten kan föreslå ett svar,
+    // och om det är ett utskick — de får aldrig något förslag.
+    return brev.map(b => ({ id: b.id, titel: b.amne, fran: b.fran, tid: b.tid, text: b.amne,
+      brev: { konto: a.epost.konto, id: b.id, lada: a.epost.lada || 'INBOX', utskick: b.utskick } }));
   }
   if (k.typ === 'kalender') {
     if (!a.kalender) throw Agent.avstangd();
@@ -1039,6 +1094,170 @@ async function speglaHandling(f) {
   if (f.session) sand(f.session, { typ: 'handling', handling: f });
 }
 
+// ── Svarsförslag och Skicka (2026-10-10) ─────────────────────────────────
+// Agenten föreslår svar på mejl som väntar på dig; du redigerar och trycker
+// Skicka. Se lib/svar.mjs (vilka brev, prompterna), lib/svarsko.mjs (tio
+// sekunder att ångra) och lib/svarmail.mjs (svaret i Mail). Inget härifrån
+// är ett verktyg: agenten och modellen kan skriva förslag, aldrig skicka.
+//
+// Proven (MAXIMUS_PROV=1 eller MAXIMUS_HANDLING_PROV=1) rör aldrig Mail:
+// skripten skrivs upp i `svarProv` och svaret låtsas.
+let svarsforslag = [];
+try { svarsforslag = JSON.parse(await maximus.lasFil(join(dataDir, 'svarsforslag.json'))); } catch { svarsforslag = []; }
+const sparaSvarsforslag = () => maximus.skrivFil(join(dataDir, 'svarsforslag.json'), JSON.stringify(svarsforslag.slice(-200)));
+const PROV_SVAR = process.env.MAXIMUS_PROV === '1' || PROV_HANDLING;
+const svarProv = { skript: [], fel: null, skickade: 0 };   // skript: { skript, argv }
+if (PROV_SVAR) {
+  SvarMail.satKorare(async (skript, { argv = [] } = {}) => {
+    svarProv.skript.push({ skript, argv });
+    // En påhittad signatur, i skriptets egna skiljetecken.
+    if (/repeat with s in signatures/.test(skript)) {
+      const [F, R] = [/"(~F[0-9a-f]+~)"/.exec(skript)?.[1], /"(~R[0-9a-f]+~)"/.exec(skript)?.[1]];
+      return `Prov${F}Med vänlig hälsning\nProvare\nprov@example.com${R}`;
+    }
+    if (svarProv.fel) { const f = svarProv.fel; svarProv.fel = null; throw new Error(f); }
+    if (argv[6] !== '1') return 'oppnat';
+    svarProv.skickade++;
+    return 'skickat';
+  });
+}
+
+/// Kända adresser och kontots egna, en gång i timmen. Bara mottagare läses.
+const svarMinne = { kanda: null, mina: new Map(), nar: 0 };
+async function svarAdresser(konto) {
+  if (PROV_SVAR) return { kanda: new Set(), mina: new Set(['prov@example.com']) };   // proven läser aldrig din Mail
+  if (Date.now() - svarMinne.nar > 36e5 || !svarMinne.kanda) {
+    svarMinne.kanda = new Set(await Post.skrivitTill().catch(() => []));
+    svarMinne.mina = new Map(); svarMinne.nar = Date.now();
+  }
+  if (!svarMinne.mina.has(konto)) svarMinne.mina.set(konto, new Set(await Post.kontoAdresser(konto).catch(() => [])));
+  return { kanda: svarMinne.kanda, mina: svarMinne.mina.get(konto) };
+}
+
+/// Inkorgens session i Grunden, annars Agenten.
+async function inkorgsSamtalet() {
+  const helig = [...sessioner.values()].find(x => x.helig?.sort === 'epost' && !x.las && !x.forseglad && !x.arkiverad);
+  return helig || agentSamtalet();
+}
+
+/// Den signatur som läggs till för kontot, och alla att välja bland.
+async function svarSignatur(konto) {
+  const lista = await SvarMail.signaturer().catch(() => []);
+  const sparad = installningar.svar?.signaturer?.[konto];
+  const vald = SvarMail.valjSignatur(lista, { adresser: [...(await svarAdresser(konto)).mina], sparad });
+  return { signaturer: lista.map(x => ({ namn: x.namn, text: x.text.slice(0, 400) })), vald };
+}
+
+/// Ett förslag på svar på ett brev. `agenten`: undersök först (a2a) och
+/// fråga om brevet alls får ett förslag; annars bad du om det själv.
+async function foreslaSvar({ konto, lada = 'INBOX', id, session = null, agenten = false, u = null, text: egen = null }) {
+  const fore = svarsforslag.find(f => f.konto === konto && f.brevId === String(id) && f.status === 'forslag');
+  if (fore && agenten) return fore;
+  const brev = await Post.text(konto, id, { lada });
+  if (!brev) throw new Error(tx('srv.post.brevOlasbart'));
+  const delat = Post.delaTrad(brev.text);
+  const lage = Svar.forslagsLage(installningar);
+  if (agenten) {
+    const { kanda, mina } = await svarAdresser(konto);
+    const b = Svar.behoverSvar({ brev, nytt: delat.nytt || brev.text, lage, kanda, mina, till: brev.till });
+    if (!b.ja) return null;
+  }
+  // Din egen text (ett utkast ur samtalet): inget att fråga modellen om.
+  if (egen != null && !agenten) {
+    const f = Svar.nyttForslag({ brev, konto, lada, text: egen, session });
+    if (fore) fore.status = 'ersatt';
+    svarsforslag.push(f); await sparaSvarsforslag();
+    return f;
+  }
+  await modellForAgenten();
+  const profil = Profil.somText(u ? malet(u) : installningar.profil) || '';
+  let slutsats = '';
+  if (agenten) {
+    const a = agentInst();
+    const tillgang = [a.kalender && bestamdKalla('kalender'), a.epost?.konto && bestamdKalla('epost')].filter(Boolean).join(', ');
+    const r = await A2A.undersok({ fynd: { titel: brev.amne, fran: brev.fran, varfor: tx('srv.svar.varfor'), text: brev.text },
+      uppdrag: Svar.undersokningsUppdrag(), profil, tillgang, varv: 2,
+      agent: o => verktygsanrop({ meddelanden: o.meddelanden, verktyg: [], tak: 400 }),
+      // Obevakad: allt agenten vill göra blir förslag som väntar på ja, och
+      // ingen handling kan skicka något.
+      assistent: (fraga, om) => agentSlinga({ uppgift: fraga, sammanhang: om, session: null, obevakad: true, webb: false }),
+    }).catch(() => null);
+    slutsats = r?.slutsats?.text || '';
+  }
+  const text = Svar.lasForslag(await svaraLokalt(Svar.forslagsprompt({ brev, trad: brev.text, profil, slutsats, lage }),
+    { plats: 'agent', tak: 700, timeout: 180000 }));
+  // Agenten tiger om brevet inte behöver svar; bad du själv får du en tom ruta.
+  if (!text && agenten) return null;
+  const f = Svar.nyttForslag({ brev, konto, lada, text: text || '', varfor: slutsats, session });
+  if (fore) fore.status = 'ersatt';
+  svarsforslag.push(f);
+  await sparaSvarsforslag();
+  return f;
+}
+
+/// Agentens förslag för det som just hittats i inkorgen, ett åt gången, i
+/// bakgrunden. Raden står i Inkorgen med uppdragskortet.
+let foreslar = false;
+async function foreslaSvarFor(u, nya, nu = new Date()) {
+  if (IDENTITET) return;   // med utökningen: ingen Mail att svara ur
+  if (foreslar || Svar.forslagsLage(installningar) === 'av') return;
+  const brev = nya.filter(f => f.brev?.konto && f.brev?.id && !f.svarsforslag);
+  if (!brev.length) return;
+  foreslar = true;
+  try {
+    for (const f of brev.slice(0, 5)) {
+      if (korningar.size > 0) break;   // samtalet har företräde
+      f.svarsforslag = 'provat';
+      const fs = await foreslaSvar({ konto: f.brev.konto, lada: f.brev.lada || 'INBOX', id: f.brev.id, agenten: true, u }).catch(() => null);
+      if (!fs) continue;
+      f.svarsforslag = fs.id;
+      const s = await inkorgsSamtalet();
+      const tid = new Date().toISOString();
+      // Inte `const tur = { id: randomUUID()`: sandgrans.test letar upp sändvägen på den raden.
+      const svarTur = { id: randomUUID(), tid, fraga: '', av: 'maximus', avAgenten: true, status: 'klar', svar: '', kvitto: [], kallor: [], uppdrag: u.id,
+        sager: tx('srv.svar.rad', { namn: fs.namn || fs.till, amne: fs.original }),
+        uppdragskort: { titel: tx('srv.svar.kortTitel'), instruktion: String(u.instruktion || '').slice(0, 600), tid: new Date(nu).toISOString(),
+          var: bestamdKalla('epost'), lasta: 1, fynd: 1, undan: 0, ursprung: null, engang: false, uppdrag: u.id },
+        svarsforslag: fs };
+      s.turer.push(svarTur); s.andrad = tid;
+      fs.session = s.id;
+      await spara(s); await sparaSvarsforslag();
+      sand(s.id, { typ: 'agenttur', session: s.id, tur: svarTur });
+      sandAlla({ typ: 'svar', forslag: fs });
+      sandAlla({ typ: 'lista' });
+    }
+    await sparaFynd();
+  } finally { foreslar = false; }
+}
+
+/// Kön för Skicka. Ingenting når Mail förrän tio sekunder gått utan Ångra.
+/// Kontots egna adresser: de enda som får stå som Bcc i svaret.
+const svarEgna = async konto => (PROV_SVAR ? ['prov@example.com'] : Post.kontoAdresser(konto).catch(() => []));
+const svarsko = skapaKo({
+  skicka: async p => SvarMail.svara({ konto: p.konto, lada: p.lada, id: p.brevId, text: p.text, signatur: p.signatur, amne: p.amne,
+    till: p.till, egna: await svarEgna(p.konto), skicka: true }),
+  klar: async (p, { resultat, fel }) => {
+    const f = p.forslag && svarsforslag.find(x => x.id === p.forslag);
+    if (fel) {
+      // Inget "skickat" på ett fel. Texten ligger kvar i rutan. Försöket
+      // står ändå i liggaren: Mail kan ha fått det, och det ska gå att se.
+      await liggare({ frontier: tx('srv.liggare.skickatEpost', { till: p.till.join(', ') }), vag: 'epost',
+        skickat: tx('srv.liggare.skickatText', { till: p.till.join(', '), amne: p.amne, text: p.text, signatur: p.signatur || tx('srv.svar.ingenSignatur') }),
+        mottaget: tx('srv.liggare.skickatFel', { fel }), tecken: p.text.length, sekunder: 0, anvandare: null, session: p.session || null,
+        aktor: tx('srv.liggare.aktorDu') }).catch(() => {});
+      sandAlla({ typ: 'svar', skickat: { id: p.id, forslag: p.forslag, fel } });
+      return;
+    }
+    const nar = new Date().toISOString();
+    if (f) { f.status = 'skickat'; f.skickat = nar; f.text = p.text; await sparaSvarsforslag().catch(() => {}); }
+    await liggare({ frontier: tx('srv.liggare.skickatEpost', { till: p.till.join(', ') }), vag: 'epost', tid: nar,
+      skickat: tx('srv.liggare.skickatText', { till: p.till.join(', '), amne: p.amne, text: p.text, signatur: p.signatur || tx('srv.svar.ingenSignatur') }),
+      mottaget: tx('srv.liggare.skickatMail', { mottagare: (resultat?.mottagare || p.till).join(', ') }),
+      tecken: p.text.length, sekunder: 0, anvandare: null, session: p.session || null, aktor: tx('srv.liggare.aktorDu') }).catch(() => {});
+    sandAlla({ typ: 'svar', skickat: { id: p.id, forslag: p.forslag, klart: true, nar } });
+  },
+});
+
 /// Agentslingan med verktygen (Fas 28). Används av arbetet på tunga fynd,
 /// av engångsuppdragen och av assistenten. Varje steg som lämnar datorn står
 /// i liggaren, märkt som agentens.
@@ -1161,6 +1380,10 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
   // hjärtslaget tyst för alla andra — med ett felmeddelande som dessutom sa
   // fel sak.
   if (maximus.skyddat && !maximus.upplast) return { nej: 'last' };
+  // Grinden: utan profil och källa inget varv alls. Hjärtslaget, "Kör nu",
+  // händelserna, nyheterna och undersökningen går alla genom här.
+  const behov = agentBehov();
+  if (!behov.klar) return { nej: 'behover', behov };
   slarNu = true;
   // Pausat till ett datum (Fas 33: "pausa allt till måndag"): igång igen
   // när datumet passerat.
@@ -1177,6 +1400,7 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
   slarBara = bara;
   sandAlla({ typ: 'lista' });
   const hant = [];
+  const svarJobb = [];
   try {
     for (let u of [...uppdrag]) {
       if (bara && u.id !== bara) continue;
@@ -1214,6 +1438,8 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
       const fs = behallna.length ? await fyndsamtal(r.uppdrag || u, behallna, nu, { vagda: r.vagda || 0, undan: r.undanlagt?.length || 0 })
         .catch(e => { hant.push({ uppdrag: u.id, titel: u.titel, fynd: 0, fel: tx('srv.agent.kundeInteOppnaSamtal', { fel: e.message }) }); return null; }) : null;
       if (r.undanlagt?.length) undanlagt = [...r.undanlagt, ...undanlagt].slice(0, UNDANTAK);
+      // Brev som väntar på svar får ett förslag (2026-10-10), efter varvet.
+      if (behallna.some(f => f.brev && !f.brev.utskick) && !(u.kallor || []).some(k => k.nyhetsbrev)) svarJobb.push([r.uppdrag || u, behallna.filter(f => f.brev && !f.brev.utskick)]);
       // Allt som HÄNDE skrivs, också "inget nytt". Det är den raden som
       // skiljer "den tittade och det var tomt" från "den tittade aldrig".
       hant.push({ uppdrag: u.id, titel: u.titel, fynd: r.fynd?.length || 0,
@@ -1237,6 +1463,7 @@ async function slaHjarta({ nu = new Date(), bara = null, handelse = false } = {}
     // Undersökningen (Fas 38) kör efter varvet, i bakgrunden, en åt gången.
     // Annars hade "Kör nu" väntat i minuter på något den inte bett om.
     setTimeout(() => { if (!undersoker) { undersoker = true; arbeta([], new Date()).catch(() => {}).finally(() => { undersoker = false; }); } }, 1500);
+    if (svarJobb.length) setTimeout(async () => { for (const [x, f] of svarJobb) await foreslaSvarFor(x, f, nu).catch(() => {}); }, 2500).unref?.();
     await anslagstavlan(hant, nu);
     // Städningen (Fas 41) på det vanliga varvet, inte när ett enda uppdrag körs.
     if (!bara) await stada(nu).catch(() => {});
@@ -1704,6 +1931,7 @@ function styrverktyg({ text = '' } = {}) {
         const u = hitta_(namn)[0];
         if (!u) return tx('srv.styr.ingetUppdragHeter', { namn });
         const r = await slaHjarta({ bara: u.id });
+        if (r?.nej === 'behover') return behovText(r.behov);
         const h = r?.find?.(x => x.uppdrag === u.id) || (Array.isArray(r) ? r[0] : null);
         return h ? tx('srv.styr.korde', { titel: u.titel, lasta: h.vagda || 0, lyfte: h.fynd || 0, undan: h.undan || 0 }) : tx('srv.styr.kundeInteKora', { nej: r?.nej || tx('srv.styr.okant') });
       } },
@@ -2047,6 +2275,18 @@ async function vaktaHandelser() {
 setInterval(() => vaktaHandelser().catch(e => console.log(`  händelser: ${e.message}`)), 30e3).unref?.();
 setTimeout(() => slaHjarta().catch(() => {}), 30000).unref?.();
 stallHjartat();
+// Grinden släpper av sig själv (2026-10-10): när profilen och en källa
+// finns slår agenten direkt — ingen omstart, ingen väntan på nästa slag. Och
+// gränssnittet får veta, åt båda hållen. Regeln räknar bara på
+// inställningarna, så att fråga var femte sekund kostar ingenting.
+{
+  let varKlar = agentBehov().klar;
+  setInterval(() => {
+    const nu = agentBehov().klar;
+    if (nu !== varKlar) { sandAlla({ typ: 'lista' }); if (nu) slaHjarta().catch(() => {}); }
+    varKlar = nu;
+  }, 5000).unref?.();
+}
 
 /// En notis. Fönstret visar den när det är öppet (händelsen 'notis');
 /// utan fönster går den till Notiscenter via osascript.
@@ -3024,6 +3264,8 @@ async function hanteraAnrop(req, res) {
         // Språket ytan ritas på (2026-10-09): ditt val, annars datorns.
         sprak: await Sprakstod.valt(installningar.sprak),
         grind: await grindSvarar(),
+        // Vad agenten saknar för att arbeta, ur samma regel som grinden.
+        behov: agentBehov(),
         // Molnmodellen (Fas 51): svarar i stället för den lokala när den är på.
         moln: molnPa() ? { pa: true, namn: molnNamn() } : null,
         pausad: modellPausad,
@@ -3149,11 +3391,32 @@ async function hanteraAnrop(req, res) {
         const konto = url.searchParams.get('konto') || '';
         if (!konto) return json(res, 422, { error: tx('srv.fel.valjKonto') });
         try {
-          return json(res, 200, { brev: await Post.brev(konto, {
+          const brev = await Post.brev(konto, {
             lada: url.searchParams.get('lada') || 'INBOX',
             antal: Number(url.searchParams.get('antal')) || 40,
-          }) });
+          });
+          // Brev med ett förslag på svar är märkta (2026-10-10).
+          for (const b of brev) b.forslag = svarsforslag.find(f => f.konto === konto && f.brevId === b.id && f.status === 'forslag')?.id || null;
+          return json(res, 200, { brev });
         } catch (e) { return json(res, 200, { brev: [], fel: e.message, tillstand: Boolean(e.tillstand) }); }
+      }
+
+      /// Svarsförslagen, lägena och det som väntar på att gå (2026-10-10).
+      /// Inte med utökningen (IDENTITET): förslagen har ingen ägare (granskningen 2026-10-10).
+      if (IDENTITET && vag.startsWith('/api/svar')) return json(res, 404, { error: tx('srv.fel.okandVag') });
+      if (vag === '/api/svar') {
+        return json(res, 200, { forslag: svarsforslag.filter(f => f.status === 'forslag'),
+          lage: { forslag: Svar.forslagsLage(installningar), skicka: Svar.skickaLage(installningar) },
+          vantar: svarsko.vantar().map(p => ({ id: p.id, forslag: p.forslag, brevId: p.brevId, kvarMs: Math.max(0, p.skickasMs - Date.now()) })) });
+      }
+      const mSvar = /^\/api\/svar\/([\w-]+)$/.exec(vag);
+      if (mSvar && svarsforslag.some(f => f.id === mSvar[1])) return json(res, 200, { forslag: svarsforslag.find(f => f.id === mSvar[1]) });
+
+      /// Signaturen som läggs till: Mails egna, och vilken som är vald.
+      if (vag === '/api/svar/signatur') {
+        const konto = url.searchParams.get('konto') || '';
+        if (!konto || !Post.finns()) return json(res, 200, { signaturer: [], vald: null });
+        return json(res, 200, await svarSignatur(konto));
       }
 
       /// Bevakningarna: vad som följs, vad som hänt, och morgonraden.
@@ -3248,6 +3511,8 @@ async function hanteraAnrop(req, res) {
           // Listan under Uppdrag (Fas 40): hur mycket det hittat, och hur mycket av det som är oläst.
           antalFynd: fynd.filter(f => f.uppdrag === u.id).length,
           nya: fynd.filter(f => f.uppdrag === u.id && !f.sett).length })),
+        // Agentens grind (2026-10-10): listan ritar "Agenten är av" ur den.
+        behov: agentBehov(),
         // Pluppen på Uppdrag: hur många som har något osett.
         osedda: uppdrag.filter(u => !u.sett).length,
       });
@@ -3274,7 +3539,7 @@ async function hanteraAnrop(req, res) {
         vecka: await veckanNu().catch(() => []),
         // Vad som kör, för pluppen uppe till höger. `vantar` betyder att
         // agenten står tillbaka för samtalet just nu.
-        lage: { slar: slarNu, vantar: korningar.size > 0, kallor: agentInst() },
+        lage: { slar: slarNu, vantar: korningar.size > 0, kallor: agentInst(), behov: agentBehov() },
       });
 
       // Det undanlagda. Ett klick bort, med skäl — "kassera skit" betyder
@@ -3445,6 +3710,21 @@ async function hanteraAnrop(req, res) {
           // Sessioner sparade före de två kontrollerna bär `lage`. De ska
           // landa på vad de betydde, inte på förvalet — se franLage().
           ...valet(s) })));
+
+      /// Felrapportens läge: finns en mottagare, vad appen vet om sig själv,
+      /// och utkast som väntar på ett nytt försök. Läses bara när rutan
+      /// öppnas; inget här lämnar datorn.
+      if (vag === '/api/felrapport') {
+        return json(res, 200, {
+          mottagare: rapportor.mottagare(),
+          // Utan mottagare: e-postvägen, till den här adressen.
+          mejl: rapportor.mottagare() ? null : Hemvist.RAPPORTMEJL,
+          tekniskt: await Felrapport.tekniskt({ version: VERSION }),
+          funktioner: Felrapport.FUNKTIONER.map(id => ({ id, namn: tx(`srv.felrapport.funktion.${id}`) })),
+          tak: Felrapport.TAK,
+          rapporter: await rapportor.lage(jag?.id).catch(() => []),
+        });
+      }
 
       if (vag === '/api/liggare') {
         // Liggaren bär samma innehåll som sessionerna och skyddas lika
@@ -3930,6 +4210,8 @@ async function hanteraAnrop(req, res) {
       const a = agentInst();
       const pa = { epost: a.epost?.konto, kalender: a.kalender, paminnelser: a.paminnelser, anteckningar: a.anteckningar?.mapp, meddelanden: a.meddelanden }[sort];
       if (!pa) return json(res, 409, { error: tx('srv.grund.intePaslagen', { app: app.namn }) });
+      // Skanningen är ett obevakat agentvarv: samma grind som hjärtslaget.
+      if (!agentBehov().klar) return behovSvar(res);
       const s = hitta(sort) || skapa(sort, app.namn);
       await spara(s);
       sandAlla({ typ: 'lista' });
@@ -3963,6 +4245,21 @@ async function hanteraAnrop(req, res) {
     // Du ur en länk (Fas 49): en LinkedIn-profil öppnas i Safari, där du
     // redan är inloggad, och läses därifrån — Maximus loggar aldrig in
     // någonstans själv. Andra sidor hämtas som vanligt.
+    // Du med egna ord (2026-10-10): det du skriver om dig. Texten sparas
+    // direkt i profilen (`egen`) — den är din, och agenten går på den tills
+    // den analyserats. Svarar modellen blir det samma förslag som ur ett cv,
+    // som du säger ja till; svarar den inte än väntar ingenting på den:
+    // `senare` säger att analysen görs när du ber om den.
+    if (vag === '/api/du/text') {
+      let du;
+      try { du = Du.egenText(kropp.text); } catch (e) { return json(res, 422, { error: e.message }); }
+      installningar = { ...installningar, profil: Profil.las({ ...(installningar.profil || {}), egen: du.text }) };
+      await maximus.skrivFil(join(dataDir, 'installningar.json'), JSON.stringify(installningar));
+      if (kropp.analysera === false || !(await grindSvarar())) return json(res, 200, { kalla: 'text', sparad: true, forslag: null, senare: true });
+      const forslag = await duForslag(du);
+      return json(res, 200, { kalla: 'text', sparad: true, forslag, ...(forslag ? {} : { error: tx('srv.du.ingetForslag') }) });
+    }
+
     if (vag === '/api/du/lank') {
       const url = String(kropp.url || '').trim();
       if (!/^https?:\/\//i.test(url)) return json(res, 422, { error: tx('srv.du.inteAdress') });
@@ -4655,6 +4952,88 @@ async function hanteraAnrop(req, res) {
       } catch (e) { return json(res, 502, { error: e.message }); }
     }
 
+    /// Felrapporten. Utkast, granskning och formulering sker här, på datorn.
+    /// Bara `/api/felrapport/skicka` når nätet, och bara med en text vars
+    /// hash är den du godkände (lib/felrapport.mjs). Ingen av vägarna är ett
+    /// verktyg: modellen och agenten har inget sätt att anropa dem.
+    if (vag === '/api/felrapport/utkast') {
+      try {
+        const teknik = await Felrapport.tekniskt({ version: VERSION });
+        return json(res, 200, Felrapport.utkast({ vad: kropp.vad, istallet: kropp.istallet, funktion: String(kropp.funktion || ''), teknik }));
+      } catch (e) { return json(res, e.status || 422, { error: e.message }); }
+    }
+    if (vag === '/api/felrapport/granska') {
+      try { return json(res, 200, Felrapport.rensa(String(kropp.text ?? '').slice(0, Felrapport.TAK * 2))); }
+      catch (e) { return json(res, e.status || 422, { error: e.message }); }
+    }
+    /// Låt den lokala modellen formulera om dina egna ord. Ingenting annat:
+    /// inga orsaker, inga steg. Svaret går genom samma rensning och hamnar i
+    /// förhandsvisningen, där du läser det. Kan modellen inte svara står
+    /// utkastet kvar som det var.
+    if (vag === '/api/felrapport/formulera') {
+      try {
+        const text = String(kropp.text || '').slice(0, 6000);
+        if (!text.trim()) return json(res, 422, { error: tx('srv.felrapport.fel.tom') });
+        // Lokalt, eller inte alls: med molnmodellen påslagen hade utkastet
+        // lämnat datorn före godkännandet.
+        if (molnPa()) return json(res, 409, { error: tx('srv.felrapport.fel.baraLokalt') });
+        const instruktion = Sprakstod.modellprompt(tx('srv.felrapport.formulera'));
+        const svar = await svaraLokalt(`${instruktion}\n\nTEXTEN:\n${text}`, { plats: 'efterat', tak: 600, timeout: 90000, baraLokalt: true });
+        const ren = String(svar?.text ?? svar ?? '').trim();
+        if (!ren) return json(res, 503, { error: tx('srv.felrapport.fel.modell') });
+        return json(res, 200, Felrapport.rensa(ren));
+      } catch (e) { return json(res, 503, { error: tx('srv.felrapport.fel.modell') }); }
+    }
+    /// Godkännandet fryser paketet i serverns lagring; skicka tar sedan bara
+    /// hashen och skickar det som ligger där (granskningen 2026-10-10).
+    if (vag === '/api/felrapport/godkann') {
+      try {
+        // Utan mottagare fryses paketet för e-postvägen, i minnet och bara en
+        // stund: mejlet öppnas med det som godkändes här, inte med något nytt.
+        if (!rapportor.mottagare()) {
+          Felrapport.prova({ text: kropp.text, epost: '', hash: kropp.hash });
+          mejlGodkanda.set(`${jag?.id ?? 'en'}:${kropp.hash}`, { text: kropp.text, tid: Date.now() });
+          return json(res, 200, { hash: kropp.hash, mejl: true });
+        }
+        return json(res, 200, await rapportor.godkann({ text: kropp.text, epost: String(kropp.epost || ''), hash: kropp.hash, agare: jag?.id }));
+      } catch (e) {
+        return json(res, e.status || 422, { error: e.message, sort: e.sort || null, ...(e.text ? { text: e.text, dolda: e.dolda } : {}) });
+      }
+    }
+    /// E-postvägen (så länge ingen mottagare är driftsatt): ett nytt, synligt
+    /// mejl i Mail med det godkända paketet. Inget skickas härifrån — du
+    /// trycker Skicka i Mail. Liggaren säger att ett mejl öppnades, inte att
+    /// något gick iväg.
+    if (vag === '/api/felrapport/mejl') {
+      const nyckel = `${jag?.id ?? 'en'}:${String(kropp.hash || '')}`;
+      const fryst = mejlGodkanda.get(nyckel);
+      if (rapportor.mottagare() || !fryst || Date.now() - fryst.tid > 10 * 60 * 1000)
+        return json(res, 404, { error: tx('srv.felrapport.fel.ejGodkant'), sort: 'ejGodkant' });
+      mejlGodkanda.delete(nyckel);
+      try {
+        const till = Hemvist.RAPPORTMEJL;
+        const r = await Felrapport.oppnaMejl({ text: fryst.text, hash: kropp.hash, till, amne: tx('srv.felrapport.mejl.amne', { version: VERSION }) },
+          { lager: mejllager });
+        await liggare({ frontier: tx('srv.felrapport.mejl.mottagare', { till }), vag: 'epost', skickat: fryst.text,
+          mottaget: tx(r.vag === 'mail' ? 'srv.felrapport.mejl.oppnat' : 'srv.felrapport.mejl.oppnatMailto', { till }),
+          tecken: fryst.text.length, sekunder: 0, anvandare: jag?.id && jag.id !== 'en' ? jag.id : null, session: null,
+          aktor: tx('srv.helig.duTitel') }).catch(() => {});
+        return json(res, 200, r);
+      } catch (e) { return json(res, e.status || 502, { error: tx('srv.felrapport.fel.mejl'), sort: 'mejl' }); }
+    }
+    if (vag === '/api/felrapport/skicka') {
+      try {
+        const kvitto = await rapportor.skicka({ hash: String(kropp.hash || ''), agare: jag?.id });
+        return json(res, 200, { kvitto });
+      } catch (e) {
+        return json(res, e.status || 502, { error: e.message, sort: e.sort || null, ...(e.text ? { text: e.text, dolda: e.dolda } : {}) });
+      }
+    }
+    if (vag === '/api/felrapport/glom') {
+      await rapportor.glom(String(kropp.hash || ''), jag?.id).catch(() => {});
+      return json(res, 200, { ok: true });
+    }
+
     /// Hjälpen. En expert på appen i stället för dokumentation.
     ///
     /// Strömmar som ett vanligt svar, men utan grind och utan liggare:
@@ -4942,8 +5321,10 @@ async function hanteraAnrop(req, res) {
         skapad: new Date().toISOString(), agare: jag?.id || null,
         turer: [], karta: [], raknare: {},
         ursprung: { sort: 'mejl', fran: brev.fran || null, namn: brev.namn || null,
-                    adress: brev.adress || null, amne: brev.amne || null,
-                    konto: String(kropp.konto || '') || null },
+                    adress: brev.svarTill?.[0] || brev.adress || null, amne: brev.amne || null,
+                    konto: String(kropp.konto || '') || null,
+                    // Brevet självt (2026-10-10): ett svar går på originalet.
+                    id: String(kropp.id || '') || null, lada: String(kropp.lada || 'INBOX') },
         lage: installningar.lage, webb: installningar.webb || 'av' };
 
       const f = await forbered(text, { karta: [], raknare: {}, sorter: galler(installningar) });
@@ -4958,6 +5339,127 @@ async function hanteraAnrop(req, res) {
       const { original, ...utanOriginal } = s.filer[0];
       return json(res, 201, { session: s.id, titel: s.titel, fil: utanOriginal,
         klass: klassaInfo(text, { funna: f.nya, rojning: f.rojning }) });
+    }
+
+    // ── Svar på mejl (2026-10-10) ─────────────────────────────────────────
+    // Förslaget, omskrivningen och Skicka. Varje väg här kräver fönstret:
+    // kakan, inte `x-maximus-nyckel` (serverns egna anrop, telefonen), inte
+    // en utökning, aldrig en annan webbplats (granskningen 2026-10-10: förut
+    // bara Skicka och Öppna i Mail). Inget verktyg och ingen modell når dem.
+    // Med utökningen (IDENTITET) finns inga svar: Mail är den här datorns,
+    // och förslagen har ingen ägare.
+    const franFonstret = () => !IDENTITET && !req.headers['x-maximus-nyckel'] && !req.headers['x-maximus-tillagg'] && !franAnnanPlats(req)
+      && /(?:^|;\s*)maximus=/.test(req.headers.cookie || '');
+    if (IDENTITET && vag.startsWith('/api/svar')) return json(res, 404, { error: tx('srv.fel.okandVag') });
+
+    if (vag === '/api/svar/forslag') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      if (!Post.finns()) return json(res, 400, { error: tx('srv.fel.mailBaraMac') });
+      const konto = String(kropp.konto || ''), id = String(kropp.id || '');
+      if (!konto || !id) return json(res, 422, { error: tx('svar.fel.ofullstandigt') });
+      try {
+        const f = await foreslaSvar({ konto, lada: String(kropp.lada || 'INBOX'), id, session: kropp.session || null,
+          text: typeof kropp.text === 'string' ? kropp.text.slice(0, 20000) : null });
+        return json(res, 201, { forslag: f });
+      } catch (e) { return json(res, 422, { error: e.message }); }
+    }
+
+    if (vag === '/api/svar/omskriv') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      const prompt = Svar.omskrivPrompt(kropp.text, kropp.stil);
+      if (!prompt || !String(kropp.text || '').trim()) return json(res, 422, { error: tx('srv.svar.ingenText') });
+      try {
+        await modellForAgenten();
+        const text = Svar.lasOmskrivning(await svaraLokalt(prompt, { plats: 'agent', tak: 700, timeout: 120000 }));
+        if (!text) return json(res, 422, { error: tx('srv.svar.omskrivningTom') });
+        return json(res, 200, { text });
+      } catch (e) { return json(res, 422, { error: e.message }); }
+    }
+
+    // Din text, sparad i förslaget när rutan stängs: ett utkast ligger kvar.
+    if (vag === '/api/svar/spara') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      const f = svarsforslag.find(x => x.id === kropp.id);
+      if (!f) return json(res, 404, { error: tx('srv.svar.finnsInte') });
+      if (f.status !== 'forslag') return json(res, 409, { error: tx('srv.svar.redan') });
+      if (typeof kropp.text === 'string') f.text = kropp.text.slice(0, 20000);
+      if (kropp.avfarda === true) f.status = 'avfard';
+      await sparaSvarsforslag();
+      sandAlla({ typ: 'svar', forslag: f });
+      return json(res, 200, { forslag: f });
+    }
+
+    /// Det som går ut tas ur förslaget — konto, låda, brev, mottagare, ämne —
+    /// aldrig ur kroppen. Ur kroppen kommer bara din text och signaturen, och
+    /// avtrycket måste stämma över allt (granskningen 2026-10-10).
+    const fryst = () => {
+      const f = svarsforslag.find(x => x.id === kropp.forslag);
+      if (!f) return { kod: 404, error: tx('srv.svar.finnsInte') };
+      if (f.status === 'skickat') return { kod: 409, error: tx('srv.svar.redan'), fel: 'redan' };
+      const till = Array.isArray(f.till) ? f.till : [f.till];
+      if (!till.length || !till.every(Svar.giltigAdress)) return { kod: 422, error: tx('svar.fel.mottagare') };
+      const text = String(kropp.text ?? '');
+      if (!text.trim()) return { kod: 422, error: tx('svar.fel.ofullstandigt') };
+      const p = { konto: f.konto, lada: f.lada || 'INBOX', brevId: f.brevId, till, amne: f.amne, text,
+        signatur: kropp.signatur ? String(kropp.signatur) : null, forslag: f.id, session: f.session || null };
+      if (String(kropp.hash || '') !== Svar.svarsavtryck(p)) return { kod: 409, error: tx('srv.svar.avtryck'), fel: 'avtryck' };
+      return { p };
+    };
+
+    // Läget "Öppna i Mail": svaret öppnas i Mail, och du skickar där.
+    if (vag === '/api/svar/mail') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      const r = fryst();
+      if (r.error) return json(res, r.kod, { error: r.error, kod: r.fel });
+      try {
+        await SvarMail.svara({ konto: r.p.konto, lada: r.p.lada, id: r.p.brevId, text: r.p.text, signatur: r.p.signatur, amne: r.p.amne,
+          till: r.p.till, egna: await svarEgna(r.p.konto), skicka: false });
+        return json(res, 200, { oppnat: true });
+      } catch (e) { return json(res, 422, { error: e.message }); }
+    }
+
+    /// Skicka. Fryser det du såg och lägger det i kön. Ingenting går till
+    /// Mail på tio sekunder.
+    if (vag === '/api/svar/skicka') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      const lage = Svar.skickaLage(installningar);
+      if (!lage) return json(res, 409, { error: tx('srv.svar.valjForst'), kod: 'valj' });
+      if (lage === 'aldrig') return json(res, 409, { error: tx('srv.svar.lageMail'), kod: 'mail' });
+      const r = fryst();
+      if (r.error) return json(res, r.kod, { error: r.error, kod: r.fel });
+      const k = svarsko.begar({ ...r.p, nyckel: String(kropp.nyckel || '') || null, hash: String(kropp.hash) });
+      if (k.fel) return json(res, 409, { error: tx(`srv.svar.ko.${k.fel}`), kod: k.fel });
+      return json(res, 202, { id: k.post.id, kvarMs: Math.max(0, k.post.skickasMs - Date.now()), igen: Boolean(k.igen) });
+    }
+
+    if (vag === '/api/svar/angra') {
+      if (!franFonstret()) return json(res, 403, { error: tx('srv.svar.baraKnappen') });
+      return json(res, 200, { angrat: svarsko.angra(String(kropp.id || '')) });
+    }
+
+    // Bara proven: ett förslag utan Mail, ett fel nästa gång, och skripten.
+    if (vag === '/api/svar/prov') {
+      if (!PROV_SVAR) return json(res, 404, { error: tx('srv.fel.okandVag') });
+      if (kropp.fel) svarProv.fel = String(kropp.fel);
+      if (kropp.forslag) {
+        const f = Svar.nyttForslag({ brev: { id: kropp.forslag.brevId || randomUUID(), fran: kropp.forslag.fran || 'Prov <prov@example.com>',
+          amne: kropp.forslag.amne || 'Prov', namn: kropp.forslag.namn || 'Prov', text: kropp.forslag.brevtext || '' },
+          konto: 'Prov', text: kropp.forslag.text || '', session: kropp.forslag.session || null });
+        svarsforslag.push(f); await sparaSvarsforslag();
+        // Med kortet: raden i Inkorgen (eller Agenten), som agenten skriver den.
+        if (kropp.kort) {
+          const s = await inkorgsSamtalet();
+          const provTur = { id: randomUUID(), tid: f.skapad, fraga: '', av: 'maximus', avAgenten: true, status: 'klar', svar: '', kvitto: [], kallor: [],
+            sager: tx('srv.svar.rad', { namn: f.namn || f.till, amne: f.original }), svarsforslag: f };
+          s.turer.push(provTur); s.andrad = provTur.tid; f.session = s.id;
+          await spara(s); await sparaSvarsforslag();
+          sand(s.id, { typ: 'agenttur', session: s.id, tur: provTur });
+          sandAlla({ typ: 'lista' });
+          return json(res, 201, { forslag: f, session: s.id });
+        }
+        return json(res, 201, { forslag: f });
+      }
+      return json(res, 200, { skript: svarProv.skript, sant: svarProv.skickade });
     }
 
     /// Ett möte blir underlag till en fråga.
@@ -5078,6 +5580,7 @@ async function hanteraAnrop(req, res) {
     /// en första överblick i Agentens samtal, med tre förslag på uppdrag.
     if (vag === '/api/agent/forsta') {
       if (maximus.skyddat && !maximus.upplast) return json(res, 423, { error: tx('srv.fel.maximusLast') });
+      if (!agentBehov().klar) return behovSvar(res);
       const s = await agentSamtalet();
       const tid = new Date().toISOString();
       const gtur = { id: randomUUID(), tid, fraga: tx('srv.forsta.fraga'), svar: '', status: 'igang', av: 'maximus', avAgenten: true,
@@ -5141,6 +5644,7 @@ async function hanteraAnrop(req, res) {
       const fraga = String(kropp.fraga || '').trim().slice(0, 300);
       if (fraga.length < 4) return json(res, 422, { error: tx('srv.bakgrund.vadLeta') });
       if (maximus.skyddat && !maximus.upplast) return json(res, 423, { error: tx('srv.fel.maximusLast') });
+      if (!agentBehov().klar) return behovSvar(res);
       if (!(installningar.agent?.sidor) && installningar.webb === 'av') return json(res, 409, { error: tx('srv.bakgrund.ingenWebb'), saknar: ['amne'] });
       const u = Uppdrag.nyttUppdrag({ instruktion: tx('srv.bakgrund.instruktion', { fraga }), titel: fraga.slice(0, 70),
         kallor: [{ typ: 'sok', fraga, varor: arVarufraga(fraga), antal: onskatAntal(fraga) }], aterkommande: false });
@@ -5685,6 +6189,19 @@ async function hanteraAnrop(req, res) {
       // ramlar in i en POST blir en rättighet, och en rättighet som smugit
       // in är ingen rättighet man gett.
       if ('agent' in kropp) kropp.agent = agentUr(kropp.agent);
+      // Handlingarnas spakar, och Skicka svar (2026-10-10): kända namn och
+      // kända lägen, inget annat.
+      if ('handlingar' in kropp) kropp.handlingar = Object.fromEntries(Object.entries(kropp.handlingar && typeof kropp.handlingar === 'object' ? kropp.handlingar : {})
+        .filter(([k, v]) => (Handlingar.HANDLINGAR[k] && Handlingar.SPAKAR.includes(v)) || (k === 'skickasvar' && Svar.SKICKALAGEN.includes(v))));
+      // Svarsförslagen: läget, och signaturen du valt per konto ('' = ingen).
+      if ('svar' in kropp) {
+        const v = kropp.svar && typeof kropp.svar === 'object' ? kropp.svar : {};
+        const sig = { ...(installningar.svar?.signaturer || {}) };
+        for (const [k, n] of Object.entries(v.signaturer && typeof v.signaturer === 'object' ? v.signaturer : {})) {
+          if (typeof k === 'string' && typeof n === 'string' && k.length <= 200) sig[k] = n.slice(0, 200);
+        }
+        kropp.svar = { forslag: Svar.FORSLAGSLAGEN.includes(v.forslag) ? v.forslag : Svar.forslagsLage(installningar), signaturer: sig };
+      }
       // Örat: svensk eller snabb, inget annat.
       if ('ora' in kropp) { if (!['svensk', 'snabb'].includes(kropp.ora)) delete kropp.ora; else satOra(kropp.ora); }
       // Dikteringen (Fas 42): sekunder tystnad som skickar; 0 = bara "skicka".
@@ -6213,6 +6730,8 @@ async function foljerMed(sess, fraga) {
         await spara(s);
         return json(res, 200, { forslag: f });
       }
+      // Ja till ett förslag skapar ett uppdrag: samma grind som /api/uppdrag.
+      if (!agentBehov().klar) return behovSvar(res);
       if (uppdrag.length >= 200) return json(res, 409, { error: tx('srv.uppdrag.tak') });
       const a = installningar.agent || {};
       const har = { epost: Boolean(a.epost?.konto), kalender: Boolean(a.kalender), anteckningar: Boolean(a.anteckningar?.mapp),
@@ -6266,7 +6785,7 @@ async function foljerMed(sess, fraga) {
       f.forstaVarv = { pagar: true };
       const turId = t.id;
       slaHjarta({ bara: u.id })
-        .then(h => (h?.nej ? { fel: h.nej === 'pagar' ? tx('srv.forslag.forstaVarvPagar') : tx('srv.fel.maximusLast') } : (h?.[0] || { fel: tx('srv.forslag.ingetVarv') })))
+        .then(h => (h?.nej ? { fel: h.nej === 'pagar' ? tx('srv.forslag.forstaVarvPagar') : h.nej === 'behover' ? behovText(h.behov) : tx('srv.fel.maximusLast') } : (h?.[0] || { fel: tx('srv.forslag.ingetVarv') })))
         .catch(e => ({ fel: e.message }))
         .then(async v => {
           f.forstaVarv = { ...v, pagar: false, klart: new Date().toISOString() };
@@ -6387,6 +6906,9 @@ async function foljerMed(sess, fraga) {
     }
 
     if (vag === '/api/uppdrag') {
+      // Ett uppdrag som inte kan köras skapas inte: beskedet säger vad som
+      // saknas, i stället för ett uppdrag som sedan misslyckas tyst.
+      if (!agentBehov().klar) return behovSvar(res);
       // Vet instruktionen inte om det ska stå och gå frågar agenten — men
       // regeln bor HÄR, inte i webbläsaren. En kopia av den i klienten vore
       // två regler att hålla i takt för hand, och den formen har bitit tio
@@ -6579,6 +7101,7 @@ async function foljerMed(sess, fraga) {
     // utan att vänta fem minuter på nästa slag.
     if (vag === '/api/agent/sla') {
       const hant = await slaHjarta();
+      if (hant?.nej === 'behover') return behovSvar(res, hant.behov);
       if (hant?.nej === 'pagar') return json(res, 409, { error: tx('srv.agent.slagPagar') });
       if (hant?.nej === 'last') return json(res, 409, { error: tx('srv.fel.maximusLast') });
       return json(res, 200, { hant, osedda: fynd.filter(f => !f.sett).length });
@@ -6589,6 +7112,7 @@ async function foljerMed(sess, fraga) {
     if (mKor) {
       if (!uppdrag.some(u => u.id === mKor[1])) return json(res, 404, { error: tx('srv.fel.uppdragFinnsInte') });
       const hant = await slaHjarta({ bara: mKor[1] });
+      if (hant?.nej === 'behover') return behovSvar(res, hant.behov);
       if (hant?.nej === 'pagar') return json(res, 409, { error: tx('srv.agent.garIgenom') });
       if (hant?.nej === 'last') return json(res, 409, { error: tx('srv.fel.maximusLast') });
       return json(res, 200, { varv: hant[0] || null });

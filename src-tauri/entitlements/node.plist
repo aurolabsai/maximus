@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Den inbyggda Node. V8 kompilerar JavaScript till maskinkod medan den
+     kör (JIT); utan de två första nycklarna dör den under hardened runtime.
+     Servern kör osascript och hjälparna åt appen, så samma rättigheter som
+     appen för det som ber om tillstånd. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key><true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <key>com.apple.security.personal-information.calendars</key><true/>
+  <key>com.apple.security.automation.apple-events</key><true/>
+</dict>
+</plist>

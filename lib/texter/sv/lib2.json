@@ -78,6 +78,7 @@
  "lib.dokument.utanAndelse": "filer utan ändelse",
  "lib.dokument.whisperSaknas": "Programmet som transkriberar finns inte på den här datorn. Be IT installera whisper-cpp.",
  "lib.dokument.wordLasesInte": "Dokumentet går inte att läsa. Är det lösenordsskyddat?",
+ "lib.du.forKort": "Skriv några ord till om dig — vad du arbetar med och var.",
  "lib.du.inteExport": "Det här ser inte ut som en LinkedIn-export. Den heter ofta Basic_LinkedInDataExport_….zip.",
  "lib.kalender.heldag": "{datum} (heldag)",
  "lib.kalender.kallade": "Kallade: {vem}",

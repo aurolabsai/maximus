@@ -223,9 +223,15 @@
   <label data-i18n="du.nameLabel">Vad ska jag kalla dig?
     <input type="text" id="inst-namn" placeholder="Förnamn eller smeknamn" autocomplete="off" maxlength="40" data-i18n-attr="placeholder:du.namePlaceholder">
   </label>
-  <!-- Du (Fas 47): ur det du redan har. LinkedIn-exporten, ett cv eller
-       profilsidan i Safari blir ett förslag; du läser och sparar. -->
+  <!-- Du (Fas 47): ur det du redan har. Med egna ord (2026-10-10),
+       LinkedIn-exporten, ett cv eller profilsidan i Safari blir ett
+       förslag; du läser och sparar. Din text sparas som den står. -->
+  <label class="du-egen" for="pr-egen"><span data-i18n="du.ownLabel">Skriv om dig själv</span></label>
+  <!-- Platshållaren och raden under sätts av app.js (ritaProfil). -->
+  <textarea id="pr-egen" rows="4" maxlength="4000" aria-describedby="pr-egen-om"></textarea>
+  <p class="fotnotis" id="pr-egen-om"></p>
   <div class="du-in">
+    <button type="button" class="tyst" id="du-analysera" data-i18n="du.analysera">Analysera</button>
     <button type="button" class="tyst" id="du-fil" data-i18n="du.importLinkedin">Läs in LinkedIn-export eller cv</button>
     <button type="button" class="tyst" id="du-safari" data-i18n="du.readSafari">Läs profilen i Safari</button>
     <input type="file" id="du-filval" accept=".zip,.pdf,.docx,.doc,.odt,.rtf,.txt,.md" hidden>
@@ -327,7 +333,7 @@
 
 <!-- Agenten får bara det du ger den. Allt av från början. -->
 <div class="flik" data-flik="agent" hidden>
-  <p class="under" data-i18n="agent.intro">Agenten läser det du ger den lov till och säger till när något angår dig. Den skickar aldrig något, och gör ingenting i dina appar utan ditt ja.</p>
+  <p class="under" data-i18n="agent.intro">Agenten läser det du ger den lov till och säger till när något angår dig. Den skickar aldrig något utan att du trycker Skicka, och gör ingenting i dina appar utan ditt ja.</p>
 <section class="del" data-del="kallor">
   <h3 class="agent-rubrik" data-i18n="svaren.deepSources">Källor</h3>
   <p class="fotnotis" data-i18n="agent.sourcesHelp">Det agenten hittar i en app skriver den i appens egen session i Grunden: Inkorgen, Kalendern, Anteckningarna, Meddelandena, Påminnelserna. Allt annat hamnar i Agenten.</p>
@@ -400,7 +406,7 @@
 </section>
 <section class="del" data-del="handlingar">
   <h3 class="agent-rubrik" data-i18n="agent.actions">Handlingar</h3>
-  <p class="fotnotis" data-i18n="agent.actionsHelp">Agenten kan föreslå att göra saker åt dig. Som förval frågar den varje gång, och ingenting görs förrän du säger ja. Mejl skickas aldrig — de läggs som utkast.</p>
+  <p class="fotnotis" data-i18n="agent.actionsHelp">Agenten kan föreslå att göra saker åt dig. Som förval frågar den varje gång, och ingenting görs förrän du säger ja. Ett mejl skickas bara när du själv trycker Skicka.</p>
   <div class="ag-handlingar" id="ag-handlingar"></div>
   <div class="har">
     <div class="har-rad" id="ag-ant-skriv-rad" hidden><span data-i18n="agent.writeDaily">Skriva en daglig översikt i anteckningarna<i class="under-rad" id="ag-ant-skriv-om">Av. Agenten läser bara.</i></span>
@@ -690,6 +696,13 @@
            en ljudfil fortfarande transkriberas finns filen inte där, och
            modellen svarar sanningsenligt att ingenting bifogats — om en fil
            som ligger synlig i rutan. -->
+      <!-- Erbjudandet när du skrivit att något inte fungerar. Bara ett
+           erbjudande: inget skickas, och inget öppnas förrän du trycker. -->
+      <div class="felrad" id="felrad" hidden role="status" aria-live="polite">
+        <p class="felrad-text" data-i18n="felrapport.erbjud">Vill du att Maximus hjälper dig att beskriva problemet för Aurolabs?</p>
+        <button type="button" class="tyst liten" id="felrad-nej" data-i18n="felrapport.nejTack">Nej tack</button>
+        <button type="button" class="primar liten" id="felrad-ja" data-i18n="felrapport.beskriv">Beskriv problemet</button>
+      </div>
       <div class="ko" id="ko" hidden>
         <div class="ko-kropp">
           <p class="ko-text"></p>
@@ -906,6 +919,61 @@
   </div></div>
 </dialog>
 
+
+<!-- Svar på ett mejl (2026-10-10). Mottagare, ämne och text syns; texten
+     går att ändra. Skicka är en knapp bara du kan trycka, och i tio sekunder
+     efteråt går det att ångra. Se oppnaSvarsruta() i app.js. -->
+<dialog id="svarsruta" aria-labelledby="svar-rubrik">
+  <div class="svar-topp">
+    <h2 id="svar-rubrik" data-i18n="svar.rubrik">Svar</h2>
+    <button type="button" class="sess-ikon" id="svar-stang" title="Stäng"
+            aria-label="Stäng" data-i18n-attr="title:allmant.close; aria-label:allmant.close"></button>
+  </div>
+  <p class="svar-varning" id="svar-varning" hidden data-i18n="svar.varning">Brevet innehåller text som försöker styra Maximus. Läs förslaget noga.</p>
+  <dl class="svar-falt">
+    <dt data-i18n="svar.till">Till</dt><dd id="svar-till">—</dd>
+    <dt data-i18n="svar.amne">Ämne</dt><dd id="svar-amne">—</dd>
+  </dl>
+  <label class="svar-etikett" for="svar-text" data-i18n="svar.text">Text</label>
+  <textarea id="svar-text" rows="9" spellcheck="true"></textarea>
+  <div class="svar-snabb" role="group" aria-label="Skriv om" data-i18n-attr="aria-label:svar.skrivOm">
+    <button type="button" class="tyst liten" data-stil="kortare" data-i18n="svar.kortare">Kortare</button>
+    <button type="button" class="tyst liten" data-stil="formellare" data-i18n="svar.formellare">Mer formellt</button>
+    <button type="button" class="tyst liten" data-stil="vanligare" data-i18n="svar.vanligare">Vänligare</button>
+  </div>
+  <div class="svar-sig">
+    <label for="svar-signatur" data-i18n="svar.signatur">Signatur</label>
+    <select id="svar-signatur"></select>
+    <pre class="svar-sig-text" id="svar-sig-text" hidden></pre>
+  </div>
+  <div class="svar-fraga" id="svar-fraga" hidden>
+    <p id="svar-fraga-text"></p>
+    <div class="svar-fraga-val" id="svar-fraga-val"></div>
+  </div>
+  <div class="svar-lage" id="svar-lage" hidden>
+    <p id="svar-lage-text" role="status" aria-live="polite"></p>
+    <button type="button" class="primar" id="svar-angra" hidden data-i18n="svar.angra">Ångra</button>
+  </div>
+  <div class="rad-knappar svar-knappar">
+    <button type="button" class="tyst" id="svar-mail" data-i18n="svar.oppnaIMail">Öppna i Mail</button>
+    <div>
+      <button type="button" class="tyst" id="svar-avfarda" data-i18n="svar.avfarda">Inget svar behövs</button>
+      <button type="button" class="primar" id="svar-skicka" data-i18n="svar.skicka">Skicka</button>
+    </div>
+  </div>
+</dialog>
+
+
+<!-- Felrapporten (public/felrapport.js). Stegen ritas i rutan; raden
+     längst ned läses upp (aria-live), så att kvittot hörs när det kommer. -->
+<dialog id="felrapport" class="felrapport" aria-labelledby="felrapport-rubrik">
+  <h2 id="felrapport-rubrik" data-i18n="felrapport.rubrik">Rapportera ett problem</h2>
+  <p class="under" id="felrapport-om" hidden></p>
+  <div id="felrapport-kropp"></div>
+  <p class="fel" id="felrapport-fel" role="alert" hidden></p>
+  <p class="fotnotis" id="felrapport-lage" role="status" aria-live="polite"></p>
+  <div class="rad-knappar" id="felrapport-knappar"></div>
+</dialog>
 
 <dialog id="fragaruta">
   <h2 id="fragaruta-rubrik">—</h2>

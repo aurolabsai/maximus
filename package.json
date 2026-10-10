@@ -1,6 +1,6 @@
 {
   "name": "maximus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "En AI-arbetsyta som körs på din egen dator. Maskerar det som lämnar datorn, och en agent som aldrig skickar något i ditt namn.",

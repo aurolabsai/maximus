@@ -280,9 +280,10 @@ macOS asks for permission. Then the ten latest subject lines are shown in the
 chat. Choose **Open** on a message and it becomes material for a new
 conversation, handled like a document you dragged in.
 
-MAXIMUS never sends, deletes, moves or marks email. The only thing that can be
-written in Mail is a draft in Drafts, and only if the agent suggests it and you
-say yes (Settings → Agent → Actions).
+MAXIMUS never deletes, moves or marks email, and never sends anything unless
+you press Send. What can be written in Mail is a draft in Drafts, if the agent
+suggests it and you say yes (Settings → Agent → Actions), and a reply you sent
+yourself with Send. A message that has a suggested reply is marked in the list.
 
 ## Deadlines
 
@@ -311,17 +312,36 @@ If you delete a project, the conversations remain.
 
 If you open a message from the inbox, the conversation remembers where it came
 from. It says so at the top — "reply to Anna Berg" — and the **Write reply**
-button next to it puts an instruction in the box that you can add to before
-you send it to the model.
+button next to it opens the reply box: recipient, subject (Re: …), the text,
+which you can edit, and which signature from Mail will be added. If you have
+no signature, none is added. **Shorter**, **More formal** and **Friendlier**
+rewrite the text with the model on the computer.
 
-The reply comes in a draft block. It has two buttons: copy, and open in Mail.
+**Suggested reply.** When the agent finds an email that asks a question or
+waits for an answer, from someone you have written to before or who writes
+directly to you, it writes a suggestion. It reads the whole thread and what it
+knows from the calendar and about you. The suggestion is shown in Inbox in the
+Foundation and in the reply box when you open the message. Newsletters and
+mass mailings get no suggestions. Under Settings → Agent → Actions you choose
+Suggested replies: Off, Questions from people you know (default) or All email
+that needs a reply. A suggestion is only text: nothing is written in Mail and
+nothing is sent.
 
-**MAXIMUS never sends.** The button opens a new email in your email program
-with recipient, subject and text filled in. You press send yourself.
+**Send.** A button only you can press. The agent and the model cannot press
+it, and text in an email, a document, a page or an answer cannot trigger it.
+The first time, MAXIMUS asks whether to send directly from now on or to open
+the draft in Mail as before. The choice is under Settings → Agent → Actions as
+Send reply: Ask every time, Allowed or Open in Mail. Allowed also needs your
+press.
 
-Long drafts are cut off by the operating system somewhere above a couple of
-thousand characters. That's why the text is always also put on the clipboard —
-if the window is empty, you paste it in.
+**Undo.** After the press, "Sending in 10 s · Undo" shows for ten seconds. If
+you undo, nothing is sent and the text stays. If MAXIMUS is closed in the
+meantime, nothing is sent either. Then Mail replies to the original, in the
+same thread and from the right account, with exactly the text you saw and the
+signature. What was sent is listed under Sent. If something fails in Mail or
+on the network, the error is shown and the text stays.
+
+**MAXIMUS never sends anything unless you press Send.**
 
 ## The calendar
 
@@ -342,6 +362,12 @@ The agent works when you're not looking. It reads what you have given
 permission for: email, calendar, notes, messages, reminders, the call log, a
 folder, LinkedIn in Safari, web pages you point out, news and law changes. It
 compiles, ranks and sets aside what doesn't concern you.
+
+**What it needs.** The agent only works when it knows who you are (a profile,
+even just your own text) and has at least one source to read. If something is
+missing it is off: no heartbeat, no tasks, no news. Home, Tasks, Agent and
+/agent then say what's missing, with a button to it — Settings → You → Profile
+or Settings → Agent → Sources. Once that's done it starts by itself.
 
 **Say it as you would to a colleague.** *"Keep track of the AI news in my
 inbox and pick out what concerns my role."* MAXIMUS shows the task below the
@@ -413,7 +439,8 @@ choose per action: Ask every time, Allowed or Never. With Allowed it does it
 right away when you ask for it yourself at the computer; when it works on its
 own, it still becomes a suggestion. Reminders and meetings can be undone.
 
-It never sends email, and never messages to anyone else. If you have chosen
+It never sends anything unless you press Send, and never messages to anyone
+else. It can suggest replies to email, but only you send. If you have chosen
 iMessage under To your phone, you yourself get a line. It never changes an
 existing note, reminder or an existing meeting, and never deletes anything it
 didn't create itself.
@@ -447,7 +474,8 @@ What has left the computer is listed under Sent (… → Sent, or Settings → Y
 data): time, recipient, number of characters, what was sent and what came
 back. That is searches, connections, pages that were fetched, the law watch's
 checks, checks for a new version, questions to the cloud model if you have
-turned it on, model downloads, and notifications to your phone.
+turned it on, model downloads, notifications to your phone, and email
+replies you sent with Send: recipient, subject, time and the text.
 
 The list can be exported as CSV, JSON or plain text. There is no button that
 empties it, and Clear everything doesn't touch it. In the same box you can turn
@@ -505,6 +533,32 @@ Paused, it stays in memory and answers right away again.
 - If you scroll up while the answer is being written, the anchor lets go, and
   an arrow takes you down.
 
+## Reporting a problem
+
+If something does not work, choose **Report a problem** in the menu at the top
+right, or type something like "this doesn't work", "the answer disappeared" or
+"report a bug" in the box. If you say that something is not working, MAXIMUS
+offers to help you describe it; nothing is sent on its own.
+
+MAXIMUS asks what you were trying to do and what happened instead, one
+question at a time, and writes a short draft in your own words. No causes,
+steps or logs are added. You see the whole text and can change it before
+anything happens. App version, macOS version, chip and where in the app it
+happened are suggested, and you untick anything you do not want to include. No
+conversation, document, audio, screenshot or file path is included. Names,
+numbers, email addresses, file paths and keys are hidden in the text, but
+hiding is a safeguard and not a guarantee, so read it through. An email
+address for a reply is optional.
+
+The form in the menu also works when the model cannot be loaded.
+
+The report is sent as an ordinary email from your own address to Aurolabs
+(maximus@aurolabs.ai). With **Send by email** MAXIMUS opens a new email in
+Mail with exactly the text you approved; MAXIMUS does not send it, you press
+Send in Mail yourself. If Mail does not answer, the email opens in your email
+app and the whole text is put on the clipboard. That an email was opened is
+listed under Sent. You can also copy the report or save it as a file.
+
 ## What it costs
 
 Nothing. MAXIMUS is free and open source under Apache-2.0. You can read,
@@ -540,7 +594,7 @@ should say that the file tried.
 
 Seven tabs. The selected tab's parts are listed in the panel on the left.
 
-- You: Profile (name, about you, LinkedIn export, CV, the profile in Safari,
+- You: Profile (name, write about yourself, about you, LinkedIn export, CV, the profile in Safari,
   the LinkedIn feed), Answers (the voice, your rules for answers, templates,
   deep search, checking the citations), Appearance and input (colors, size,
   dictation).
@@ -568,7 +622,9 @@ Seven tabs. The selected tab's parts are listed in the panel on the left.
 
 Where you land: news for you and the agent's latest moves, what it has found,
 investigated or got stuck on. If you click a news item, a conversation about
-it opens, with a question ready in the box.
+it opens, with a question ready in the box. If the agent is missing something
+it needs to work, a card comes first, with **Set up**. It goes away once that's
+done, or when you hide it.
 
 ## News for you
 
@@ -588,9 +644,16 @@ Foundation's sessions disappear only with Clear everything.
 
 ## You and LinkedIn
 
-The profile is built from what you already have: the LinkedIn export (ordered
-on LinkedIn: Me → Settings & Privacy → Data privacy → Get a copy of your data),
-a CV, or the profile page in Safari, which Maximus reads for you. If you said
+The profile is built in your own words or from what you already have. **Write
+it yourself**: a few sentences about what you work on and where, your role,
+what Maximus should keep an eye on and what interests you. The local model
+reads the text like a CV and suggests the profile; you say That's right or
+Not quite. If the model is still starting, the text is saved right away, and the
+agent works from it until you press **Analyze** under Settings → You →
+Profile, where you can edit the text at any time. Or the LinkedIn export
+(ordered on LinkedIn: Me → Settings & Privacy → Data privacy → Get a copy of
+your data), a CV, or the profile page in Safari, which Maximus reads for you.
+Every step of the start can be skipped, and **Skip the rest** ends it at once. If you said
 yes to following along when you started, the agent also reads your LinkedIn
 feed. A month after an import, Maximus reminds you about a new export. It
 never posts, likes or contacts anyone in your name.

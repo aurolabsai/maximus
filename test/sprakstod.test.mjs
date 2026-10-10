@@ -87,7 +87,7 @@ test('varje nyckel på engelska finns på svenska, och platshållarna stämmer',
   });
 
   test('varje nyckel i ordlistorna används, och engelskan är komplett', async () => {
-    const kallor = html + (await Promise.all(['public/app.js', 'public/demo.js', 'public/md.js', 'public/fragor.js'].map(las))).join('\n');
+    const kallor = html + (await Promise.all(['public/app.js', 'public/demo.js', 'public/md.js', 'public/fragor.js', 'public/felrapport.js'].map(las))).join('\n');
     for (const k of Object.keys(sv)) {
       assert.ok(kallor.includes(`'${k}'`) || kallor.includes(`"${k}"`) || kallor.includes(`:${k}`), `${k} används inte`);
       assert.ok(k in en, `${k} saknas på engelska`);

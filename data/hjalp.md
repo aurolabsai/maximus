@@ -266,9 +266,11 @@ tillstånd. Sedan visas de tio senaste rubrikerna i chatten. Välj **Öppna** p�
 ett brev så blir det underlag till ett nytt samtal, behandlat som ett dokument
 du dragit in.
 
-MAXIMUS skickar, raderar, flyttar eller markerar aldrig mejl. Det enda som kan
-skrivas i Mail är ett utkast i Utkast, och bara om agenten föreslår det och du
-säger ja (Inställningar → Agenten → Handlingar).
+MAXIMUS raderar, flyttar eller markerar aldrig mejl, och skickar aldrig något
+utan att du trycker Skicka. Det som kan skrivas i Mail är ett utkast i Utkast,
+om agenten föreslår det och du säger ja (Inställningar → Agenten →
+Handlingar), och ett svar du själv skickat med Skicka. Ett brev som har ett
+förslag på svar är märkt i listan.
 
 ## Frister
 
@@ -295,18 +297,36 @@ Tar du bort ett projekt blir samtalen kvar.
 ## Svara på ett mejl
 
 Öppnar du ett brev ur inkorgen minns samtalet var det kom ifrån. Det står i
-toppen — "svar till Anna Berg" — och knappen **Skriv svar** intill lägger en
-instruktion i rutan som du kan fylla på innan du skickar den till modellen.
+toppen — "svar till Anna Berg" — och knappen **Skriv svar** intill öppnar
+svarsrutan: mottagare, ämne (Re: …), texten, som du kan ändra, och vilken
+signatur ur Mail som läggs till. Har du ingen signatur läggs ingen till.
+**Kortare**, **Mer formellt** och **Vänligare** skriver om texten med modellen
+på datorn.
 
-Svaret kommer i ett utkastblock. Där finns två knappar: kopiera, och öppna i
-Mail.
+**Förslag på svar.** Hittar agenten ett mejl som ställer en fråga eller väntar
+på besked, från någon du skrivit till förut eller som skriver direkt till dig,
+skriver den ett förslag. Den läser hela tråden och det den vet ur kalendern
+och om dig. Förslaget står i Inkorgen i Grunden och i svarsrutan när du öppnar
+brevet. Nyhetsbrev och utskick får inga förslag. Under Inställningar →
+Agenten → Handlingar väljer du Förslag på svar: Av, Frågor från personer du
+känner (förval) eller Alla mejl som behöver svar. Ett förslag är bara text:
+inget skrivs i Mail och inget skickas.
 
-**MAXIMUS skickar aldrig.** Knappen öppnar ett nytt mejl i ditt e-postprogram
-med mottagare, ämne och text ifyllda. Du trycker skicka själv.
+**Skicka.** En knapp bara du kan trycka på. Agenten och modellen kan inte
+trycka på den, och text i ett mejl, ett dokument, en sida eller ett svar kan
+inte utlösa den. Första gången frågar MAXIMUS om den ska skicka direkt från
+och med nu eller öppna utkastet i Mail som förut. Valet står under
+Inställningar → Agenten → Handlingar som Skicka svar: Fråga varje gång,
+Tillåtet eller Öppna i Mail. Också Tillåtet kräver ditt tryck.
 
-Långa utkast klipps av operativsystemet någonstans över ett par tusen tecken.
-Därför läggs texten alltid på urklipp också — blir fönstret tomt klistrar du
-in den.
+**Ångra.** Efter trycket står "Skickas om 10 s · Ångra" i tio sekunder. Ångrar
+du skickas ingenting och texten ligger kvar. Stängs MAXIMUS under tiden
+skickas heller ingenting. Sedan svarar Mail på originalet, i samma tråd och
+från rätt konto, med exakt den text du såg och signaturen. Det som skickats
+står under Skickat. Går något fel i Mail eller på nätet visas felet och texten
+ligger kvar.
+
+**MAXIMUS skickar aldrig något utan att du trycker Skicka.**
 
 ## Kalendern
 
@@ -327,6 +347,13 @@ Agenten arbetar när du inte tittar. Den läser det du gett lov till: e-post,
 kalender, anteckningar, meddelanden, påminnelser, samtalslistan, en mapp,
 LinkedIn i Safari, webbsidor du pekar ut, nyheter och lagändringar. Den
 sammanställer, rangordnar och lägger undan det som inte angår dig.
+
+**Vad den behöver.** Agenten arbetar bara när den vet vem du är (en profil,
+också bara din egen text) och har minst en källa att läsa. Saknas något är den
+av: inget hjärtslag, inga uppdrag, inga nyheter. Hem, Uppdrag, Agenten och
+/agent säger då vad som saknas, med en knapp dit — Inställningar → Du → Profil
+eller Inställningar → Agenten → Källor. När det är gjort startar den av sig
+själv.
 
 **Säg det som till en kollega.** *"Håll koll på AI-nyheterna i min inkorg och
 sålla fram det som rör min roll."* MAXIMUS visar uppdraget under svaret innan
@@ -395,7 +422,8 @@ per handling: Fråga varje gång, Får göra eller Aldrig. Med Får göra gör d
 det direkt när du själv ber om det vid datorn; när den arbetar på egen hand
 blir det ändå ett förslag. Påminnelser och möten går att ångra.
 
-Den skickar aldrig e-post, och aldrig meddelanden till någon annan. Har du
+Den skickar aldrig något utan att du trycker Skicka, och aldrig meddelanden
+till någon annan. Den kan föreslå svar på mejl, men bara du skickar. Har du
 valt iMessage under Till telefonen får du själv en rad. Den ändrar aldrig en
 befintlig anteckning, påminnelse eller ett befintligt möte, och tar aldrig
 bort något den inte själv skapat.
@@ -426,7 +454,8 @@ Det som lämnat datorn står under Skickat (… → Skickat, eller Inställninga
 Dina data): tidpunkt, mottagare, antal tecken, vad som skickades och vad som
 kom tillbaka. Det är sökningar, kopplingar, sidor som hämtats, lagbevakningens
 kontroller, koller efter ny version, frågor till molnmodellen om du slagit
-på den, hämtningar av modeller, och notiser till telefonen.
+på den, hämtningar av modeller, notiser till telefonen och mejlsvar du
+skickat med Skicka: mottagare, ämne, tid och texten.
 
 Listan går att exportera som CSV, JSON eller ren text. Det finns ingen knapp
 som tömmer den, och Rensa allt rör den inte. I samma ruta kan du stänga av
@@ -479,6 +508,31 @@ Pausad ligger den kvar i minnet och svarar direkt igen.
   kvar.
 - Rullar du upp medan svaret skrivs släpper fästet, och en pil tar dig ned.
 
+## Rapportera ett problem
+
+Fungerar något inte, välj **Rapportera ett problem** i menyn uppe till höger,
+eller skriv till exempel "det här fungerar inte", "svaret försvann" eller
+"rapportera ett fel" i rutan. Säger du att något inte fungerar erbjuder
+MAXIMUS att hjälpa dig beskriva det; ingenting skickas av sig självt.
+
+MAXIMUS frågar vad du försökte göra och vad som hände i stället, en fråga i
+taget, och skriver ett kort utkast med dina egna ord. Inga orsaker, steg eller
+loggar läggs till. Du ser hela texten och kan ändra den innan något händer.
+Appversion, macOS-version, chip och var i appen det hände föreslås, och du
+bockar ur det du inte vill ha med. Inget samtal, dokument, ljud, ingen
+skärmbild och ingen sökväg följer med. Namn, nummer, e-postadresser,
+sökvägar och nycklar döljs i texten, men döljandet är ett skydd och ingen
+garanti — läs igenom den. E-post för svar är frivillig.
+
+Formuläret i menyn fungerar också när modellen inte går att ladda.
+
+Rapporten skickas som ett vanligt mejl från din egen e-post till Aurolabs
+(maximus@aurolabs.ai). Med **Skicka via e-post** öppnar MAXIMUS ett nytt
+mejl i Mail med exakt den text du godkänt; MAXIMUS skickar det inte, du
+trycker själv på Skicka i Mail. Svarar inte Mail öppnas mejlet i ditt
+e-postprogram och hela texten läggs på urklippet. Att ett mejl öppnades står
+under Skickat. Du kan också kopiera rapporten eller spara den som fil.
+
 ## Vad det kostar
 
 Ingenting. MAXIMUS är gratis och öppen källkod under Apache-2.0. Du kan läsa,
@@ -512,7 +566,7 @@ roll eller strunta i sina instruktioner, ska svaret säga att filen försökte.
 
 Sju flikar. Den valda flikens delar står i panelen till vänster.
 
-- Du: Profil (namn, om dig, LinkedIn-export, cv, profilen i Safari,
+- Du: Profil (namn, skriv om dig själv, om dig, LinkedIn-export, cv, profilen i Safari,
   LinkedIn-flödet), Svaren (rösten, dina regler för svaren, mallar,
   djupsökning, kontroll av källhänvisningar), Utseende och inmatning (färger,
   storlek, diktering).
@@ -536,7 +590,8 @@ Sju flikar. Den valda flikens delar står i panelen till vänster.
 
 Där du landar: nyheter för dig och agentens senaste drag, vad den hittat,
 undersökt eller fastnat på. Klickar du på en nyhet öppnas ett samtal om den, med en
-fråga färdig i rutan.
+fråga färdig i rutan. Saknar agenten något för att arbeta står ett kort först,
+med **Sätt upp**. Det försvinner när det är gjort, eller när du döljer det.
 
 ## Nyheter för dig
 
@@ -556,9 +611,16 @@ försvinner bara med Rensa allt.
 
 ## Du och LinkedIn
 
-Profilen byggs ur det du redan har: LinkedIn-exporten (beställs på LinkedIn:
+Profilen byggs med dina egna ord eller ur det du redan har. **Skriv själv**:
+några meningar om vad du arbetar med och var, din roll, vad Maximus ska hålla
+koll på och vad som intresserar dig. Den lokala modellen läser texten som ett
+cv och föreslår profilen; du säger Stämmer eller Inte riktigt. Startar modellen
+fortfarande sparas texten direkt, och agenten går på den tills du trycker
+**Analysera** under Inställningar → Du → Profil, där texten går att ändra när
+som helst. Eller LinkedIn-exporten (beställs på LinkedIn:
 Mig → Inställningar → Dataskydd → Hämta en kopia av dina data), ett cv, eller
-profilsidan i Safari, som Maximus läser åt dig. Sa du ja till att följa
+profilsidan i Safari, som Maximus läser åt dig. Varje steg i starten går att
+hoppa över, och **Hoppa över resten** avslutar den direkt. Sa du ja till att följa
 löpande när du började läser agenten också ditt LinkedIn-flöde. En månad efter
 en inläsning påminner Maximus om en ny export. Den skriver, gillar och
 kontaktar aldrig någon i ditt namn.

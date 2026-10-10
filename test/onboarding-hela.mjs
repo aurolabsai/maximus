@@ -20,7 +20,7 @@ const vanta = async (re, ms = 360000) => {
 const knapp = async text => { await p.locator('.forsta-val button', { hasText: text }).last().click(); await p.waitForTimeout(600); };
 await vanta(/Vem är du\?/);
 ok(true, 'onboarding börjar med vem du är');
-const [valjare] = await Promise.all([p.waitForEvent('filechooser'), knapp('Bifoga cv eller LinkedIn-export')]);
+const [valjare] = await Promise.all([p.waitForEvent('filechooser'), knapp('Bifoga cv')]);
 await valjare.setFiles('/tmp/maximus-prov-filer/cv-karin-ek.txt');
 const t0 = Date.now();
 const forst = await vanta(/Så här förstår jag dig/, 600000);

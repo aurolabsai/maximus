@@ -153,7 +153,7 @@ for (const [vad, ok, varfor] of prov) {
 }
 
 console.log(byggt ? '' : '\n  Bygg först för det riktiga provet:'
-  + '\n    npm run tauri build   (eller node scripts/signera.mjs)');
+  + '\n    node scripts/signera.mjs');
 console.log(allt
   ? '\nIngenting som bara fungerar här.\n'
   : '\nNågot skulle fattas hos en kund.\n');

@@ -48,7 +48,7 @@ test('varje flik i inställningarna har ett hjälpämne', () => {
 test('varje "Visa mig" pekar på en plats som finns', () => {
   for (const [, id, mal] of amnen.matchAll(/id: '([^']+)', visa: '([^']+)'/g)) {
     const [sort, a, b] = mal.split(':');
-    assert.ok(['inst', 'uppdrag', 'hem', 'samtal', 'skickat', 'allt', 'komp'].includes(sort), `${id}: okänd plats ${mal}`);
+    assert.ok(['inst', 'uppdrag', 'hem', 'samtal', 'skickat', 'allt', 'komp', 'rapport'].includes(sort), `${id}: okänd plats ${mal}`);
     if (sort === 'inst') {
       assert.ok(html.includes(`<div class="flik" data-flik="${a}"`), `${id}: fliken ${a} finns inte`);
       if (b) assert.ok(html.includes(`data-del="${b}"`), `${id}: delen ${b} finns inte`);

@@ -111,8 +111,9 @@ test('kapacitetstexten lovar aldrig att modellen själv utför något', async ()
   // veta att funktionen finns.
   assert.match(JAG, /du startar det inte själv/i);
   assert.match(JAG, /Påstå aldrig att du har gjort något av det/);
-  // Och den får inte säga att MAXIMUS skickar e-post. Läs, aldrig skriv.
-  assert.match(JAG, /skriver aldrig och skickar aldrig/i);
+  // Och den får inte säga att MAXIMUS skickar e-post på egen hand: bara
+  // ditt tryck på Skicka skickar (villkoren version 6, 2026-10-10).
+  assert.match(JAG, /skickar aldrig något utan att du trycker Skicka/i);
 });
 
 test('kapacitetstexten är statisk — inget som ändras mellan frågorna', async () => {

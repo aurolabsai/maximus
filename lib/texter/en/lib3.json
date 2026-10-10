@@ -106,5 +106,8 @@
  "uppdatering.nyttolast": "GET update manifest · version {version} · platform {plats}",
  "uppdatering.servern": "the update server",
  "uppdatering.svarade": "the server responded {status}",
- "zip.inteZip": "The file is not a zip."
+ "zip.inteZip": "The file is not a zip.",
+ "svar.fel.ofullstandigt": "The reply is missing a recipient, an email or text.",
+ "svar.fel.mailSvaradeInte": "Mail did not confirm that the reply went out. Check the Outbox in Mail; the text is still here.",
+ "svar.fel.mottagare": "Mail wanted to reply to a different address than the one shown. Nothing was sent."
 }

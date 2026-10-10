@@ -34,7 +34,12 @@ If the model seems stuck, its own log is in `~/Library/Application Support/Maxim
 
 ### Why does macOS warn me when I open it?
 
-The app is not notarized by Apple yet. The first time, open Maximus once and close the warning, then go to System Settings → Privacy & Security and click Open Anyway. On macOS 14 and earlier, right-click Maximus → Open → Open also works. Until it is notarized, macOS also asks again for Calendar and Reminders access after an update.
+Because Maximus isn't notarized by Apple yet. Our Apple Developer enrollment is being processed; the first release after it will open without a warning. Until then, the first launch needs one manual step:
+
+1. Open Maximus once. The warning only offers **Done** — click it.
+2. Go to **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway** next to *"Maximus was blocked…"*. Confirm with your password or Touch ID.
+
+You do this once. On macOS 14 and earlier, right-click Maximus → Open → Open also works. Until it is notarized, macOS may also ask again for Calendar and Reminders access after an update.
 
 ### Is the interface available in English?
 
@@ -103,13 +108,16 @@ Write it in plain words, for example "keep an eye on invoices in my inbox and te
 
 ### Can the agent send mail or act on my behalf?
 
-It never sends mail or messages, never posts or likes anything, and never edits or deletes your existing items. It can **propose** to:
+It never sends anything unless you press Send, never sends messages, never posts or likes anything, and never edits or deletes your existing items. It can **propose** to:
 
 - create a reminder;
 - add a meeting;
 - put a mail draft in Drafts;
 - write a new note;
-- run a Shortcut.
+- run a Shortcut;
+- reply to a mail that asks you something (a **Suggested reply**).
+
+A suggested reply is text in Maximus. Nothing is written in Mail and nothing is sent until you press **Send** in the reply box. Send is never a tool the agent or the model can call, and text in a mail cannot trigger it. After the press you have ten seconds to undo, then Mail sends it as a real reply from your account.
 
 By default each proposal waits for your **Yes**. You can change that per action under Settings → Agent → Actions.
 

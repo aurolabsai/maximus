@@ -6,7 +6,7 @@
 
 *The film (4 min, in Swedish): recorded from the real app, with made-up material.*
 
-Maximus is a macOS app that runs an AI model on your own Mac, with an agent that reads your Mail, Calendar, Notes, Messages, Reminders and LinkedIn feed, works out what matters to you, and proposes actions — a reminder, a meeting, a mail draft — that wait for your yes. It's private and safe by design: everything runs locally with no account and no telemetry, the agent never sends, posts or deletes anything in your name, and anything that leaves the machine has names and personal details masked first and is written to a log you can check and export. It's for privacy-conscious professionals on Apple Silicon Macs who want an AI assistant to keep watch over their inbox, calendar and feed without handing their data or their voice to the cloud.
+Maximus is a macOS app that runs an AI model on your own Mac, with an agent that reads your Mail, Calendar, Notes, Messages, Reminders and LinkedIn feed, works out what matters to you, and proposes actions — a reminder, a meeting, a mail draft, a reply to a mail — that wait for your yes. It's private and safe by design: everything runs locally with no account and no telemetry, nothing is sent unless you press Send, the agent never posts or deletes anything in your name, and anything that leaves the machine has names and personal details masked first and is written to a log you can check and export. It's for privacy-conscious professionals on Apple Silicon Macs who want an AI assistant to keep watch over their inbox, calendar and feed without handing their data or their voice to the cloud.
 
 ### Other useful features
 
@@ -16,7 +16,7 @@ Maximus is a macOS app that runs an AI model on your own Mac, with an agent that
 - **A sensitivity check before web searches.** Every question is rated 0 to 3. At level 2 you see the exact masked search terms first; at level 3 (protected identities, threats) it needs a deliberate click. *Who cares:* social services, police, journalists and anyone working with protected identities.
 - **Documents in your own templates.** Answers become Word, PDF, PowerPoint and Excel files, and it can build a presentation, a document, a deep dive or a decision-record PDF. *Who cares:* consultants and officials who produce reports and decision records for a living.
 - **A phone channel with no app.** Alerts arrive through an iCloud Reminders list; you reply by ticking the item or writing in its note. Anything typed on the phone is treated as untrusted, so nothing happens until you approve it at the computer. *Who cares:* people away from their desk who don't want another app on their phone.
-- **Mail replies you send yourself.** It drafts a reply and opens it in Mail, but never sends it. *Who cares:* anyone who wants help writing without giving up control of what goes out under their name.
+- **Mail replies that go out only when you press Send.** The agent suggests a reply to mail that asks you something, you edit it in a reply box, and Send goes through Mail as a real reply in the same thread, with ten seconds to undo. The agent and the model can never press Send. *Who cares:* anyone who wants help writing without giving up control of what goes out under their name.
 
 ### Built Swedish-first
 
@@ -44,9 +44,14 @@ Four parts are tuned for Swedish. The masking finds names, places and workplaces
 
 ## Install
 
-1. Download `Maximus_1.0.0_aarch64.dmg` from [Releases](https://github.com/aurolabsai/maximus/releases/latest).
+1. Download the latest `Maximus_…_aarch64.dmg` from [Releases](https://github.com/aurolabsai/maximus/releases/latest).
 2. Open it and drag **Maximus** to **Applications**.
-3. **First launch:** open Maximus once and close the warning. Then go to System Settings → Privacy & Security and click **Open Anyway** near the bottom. (On macOS 14 and earlier, right-click Maximus → **Open** → **Open** also works.) The app is signed for updates but not yet notarized by Apple, so macOS warns once.
+3. **First launch — one manual step for now.** Apple notarization is on its way (our Apple Developer enrollment is being processed). Until it's done, macOS stops the first launch with a warning that only offers **Done**. That's expected:
+   1. Open Maximus once. When the warning appears, click **Done**.
+   2. Open **System Settings → Privacy & Security** and scroll down to **Security**. You'll see *"Maximus was blocked to protect your Mac."*
+   3. Click **Open Anyway**, confirm with your password or Touch ID, then **Open**.
+
+   You only do this once; after that Maximus opens normally. (On macOS 14 and earlier: right-click Maximus → **Open** → **Open**.) The next release will be notarized and open without any of this.
 
 The model downloads on first start and is sized to your memory: Gemma 4 E2B below 16 GB, E4B at 16 GB, 12B (6.5 GB) at 24 GB or more. Updates arrive inside the app and are verified against a signing key before they install.
 

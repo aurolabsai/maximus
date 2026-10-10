@@ -55,7 +55,10 @@ export async function forbiStarten(p, api, { forsta = true } = {}) {
   }
   // Uppstartsvilan står annars i vägen för varje prov. test/vilan.mjs slår på den.
   await api('/api/installningar', { vilaVidStart: false });
-  if (forsta) await api('/api/installningar', { forsta: { steg: 'tack', klar: true }, profil: { vem: 'Provare' } });
+  // Förbi starten är också förbi agentens grind (2026-10-10): en profil och
+  // en källa, lagbevakningen, som inte kräver något lov av macOS. Prov som
+  // ger agenten andra källor ersätter den; test/forsta.mjs provar grinden.
+  if (forsta) await api('/api/installningar', { forsta: { steg: 'tack', klar: true }, profil: { vem: 'Provare' }, agent: { bevakning: true } });
   await p.reload({ waitUntil: 'networkidle' });
   await p.waitForTimeout(700);
 }

@@ -1,0 +1,6 @@
+{
+ "hjalp.modell.vadMaximusKan": "What Maximus can do",
+ "hjalp.modell.underlag": "── Material about MAXIMUS ──",
+ "hjalp.modell.installningar": "── The user's settings right now ──",
+ "hjalp.modell.egetLage": "If the user asks about their own setup, answer from the lines above and say where it is changed."
+}

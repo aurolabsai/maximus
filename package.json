@@ -1,0 +1,47 @@
+{
+  "name": "maximus",
+  "version": "1.0.4",
+  "private": true,
+  "type": "module",
+  "description": "En lokal AI-arbetsyta med en agent som aldrig talar i ditt namn.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "hero": "node scripts/hero-server.mjs",
+    "hero:record": "node scripts/spela-in-hero.mjs",
+    "hero:check": "node scripts/prova-hero.mjs",
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "skrivbord": "tauri build",
+    "skrivbord:dev": "tauri dev",
+    "slapp": "node scripts/slapp.mjs",
+    "gemmaprov": "node scripts/gemmaprov.mjs",
+    "skarpt": "node scripts/skarpt.mjs",
+    "renamaskinen": "node scripts/rena-maskinen.mjs",
+    "signera": "node scripts/signera.mjs",
+    "hero:assets": "node scripts/hero-assets.mjs",
+    "hero:check:motion": "node scripts/prova-hero-motion.mjs",
+    "hero:record:real": "node scripts/spela-in-verklig-app.mjs",
+    "hero:edit:real": "node scripts/klipp-verklig-film.mjs",
+    "hero:check:film": "node scripts/prova-hero-film.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "gsap": "3.15.0",
+    "playwright": "^1.63.0"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "docx": "^9.8.1",
+    "pptxgenjs": "^4.0.1"
+  },
+  "overrides": {
+    "image-size": "^2.0.3"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aurolabsai/maximus.git"
+  }
+}

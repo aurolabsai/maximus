@@ -1,0 +1,36 @@
+{
+ "lib.kollega.boka.avsandaren": "avsändaren",
+ "lib.kollega.boka.titel": "Boka in ett möte med {vem}",
+ "lib.kollega.boka.varfor": "{vem} ber om ett möte i «{amne}».",
+ "lib.kollega.knack.gammal": "Det jag vet från LinkedIn eller cv:t lästes in {datum}. Har något ändrats sedan dess: roll, uppdrag eller mål?",
+ "lib.kollega.knack.hej": "Hej! {fraga}",
+ "lib.kollega.knack.hurGar": "Hur går det med arbetet? Jag har antecknat: ”{om}”. Stämmer det fortfarande?",
+ "lib.kollega.knack.luckaArbetar": "Vad arbetar du med just nu? Jag har ingenting om det.",
+ "lib.kollega.knack.luckaVill": "Vad vill du få gjort de närmaste månaderna? Det styr vad agenten lyfter fram.",
+ "lib.kollega.knack.monster": {
+  "en": "{vem} har dykt upp {n} gång den senaste veckan. Vad gäller det, och ska jag hålla koll på det?",
+  "flera": "{vem} har dykt upp {n} gånger den senaste veckan. Vad gäller det, och ska jag hålla koll på det?"
+ },
+ "lib.kollega.knack.rollen": "{titel} på {org}",
+ "lib.kollega.knack.slutat": "Du har slutat skriva om {om}. Gäller det fortfarande?",
+ "lib.kollega.mote.kallade": "Kallade: {vem}",
+ "lib.kollega.mote.plats": "Plats: {plats}",
+ "lib.kollega.mote.utanRubrik": "Möte utan rubrik",
+ "srv.kollega.bokaRad": "Mötet **{titel}** är förberett. Kalender frågar var det ska ligga innan något sparas.",
+ "srv.kollega.finnsInte": "Förslaget finns inte längre.",
+ "srv.kollega.knackBorta": "Frågan är inte öppen längre.",
+ "srv.kollega.knackNoterat": "Tack. Inget i banken behöver ändras av det.",
+ "srv.kollega.knackSvar": "Svara visad, inte_nu, aldrig, klar eller stang.",
+ "srv.kollega.notisText": {
+  "en": "{n} förslag: {forsta}",
+  "flera": "{n} förslag, bland annat: {forsta}"
+ },
+ "srv.kollega.notisTitel": "Förslag från agenten",
+ "srv.kollega.rad": {
+  "en": "Ett förslag ur det jag läst. Varför står under, och underlaget i korten. Inget skickas förrän du gör det.",
+  "flera": "{n} förslag ur det jag läst. Varför står under varje, och underlaget i korten. Inget skickas förrän du gör det."
+ },
+ "srv.kollega.redanBesvarat": "Förslaget är redan besvarat.",
+ "srv.kollega.taEllerAvboj": "Svara ta eller avboj.",
+ "srv.kollega.valjTid": "Välj en tid för mötet först."
+}

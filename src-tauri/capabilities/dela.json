@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dela",
+  "description": "Fönstret får öppna macOS delningsmeny för en fil — och ingenting annat. Sidan kommer från den egna servern på loopback; utan den här raden har den ingen väg in i skalet alls, och det ska den inte få ha för något annat än just det här.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*"] },
+  "permissions": ["sharekit:allow-share-file"]
+}

@@ -1,0 +1,7 @@
+*.log
+node_modules
+src-tauri/resources
+src-tauri/target
+tmp
+src-tauri/llama
+src-tauri/verktyg-bin

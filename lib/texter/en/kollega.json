@@ -1,0 +1,36 @@
+{
+ "lib.kollega.boka.avsandaren": "the sender",
+ "lib.kollega.boka.titel": "Book a meeting with {vem}",
+ "lib.kollega.boka.varfor": "{vem} asks for a meeting in “{amne}”.",
+ "lib.kollega.knack.gammal": "What I know from LinkedIn or your CV was read on {datum}. Has anything changed since: role, assignments or goals?",
+ "lib.kollega.knack.hej": "Hi! {fraga}",
+ "lib.kollega.knack.hurGar": "How is work going? I have noted: “{om}”. Is that still right?",
+ "lib.kollega.knack.luckaArbetar": "What are you working on right now? I have nothing about it.",
+ "lib.kollega.knack.luckaVill": "What do you want to get done in the coming months? It steers what the agent brings up.",
+ "lib.kollega.knack.monster": {
+  "en": "{vem} has come up {n} time in the past week. What is it about, and should I keep track of it?",
+  "flera": "{vem} has come up {n} times in the past week. What is it about, and should I keep track of it?"
+ },
+ "lib.kollega.knack.rollen": "{titel} at {org}",
+ "lib.kollega.knack.slutat": "You have stopped writing about {om}. Does it still apply?",
+ "lib.kollega.mote.kallade": "Invited: {vem}",
+ "lib.kollega.mote.plats": "Location: {plats}",
+ "lib.kollega.mote.utanRubrik": "Meeting without a title",
+ "srv.kollega.bokaRad": "The meeting **{titel}** is prepared. Calendar asks where it goes before anything is saved.",
+ "srv.kollega.finnsInte": "The suggestion no longer exists.",
+ "srv.kollega.knackBorta": "The question is no longer open.",
+ "srv.kollega.knackNoterat": "Thanks. Nothing in the bank needs to change from that.",
+ "srv.kollega.knackSvar": "Answer visad, inte_nu, aldrig, klar or stang.",
+ "srv.kollega.notisText": {
+  "en": "{n} suggestion: {forsta}",
+  "flera": "{n} suggestions, including: {forsta}"
+ },
+ "srv.kollega.notisTitel": "Suggestions from the agent",
+ "srv.kollega.rad": {
+  "en": "A suggestion from what I have read. Why is below, and the material is in the cards. Nothing is sent until you send it.",
+  "flera": "{n} suggestions from what I have read. Why is below each one, and the material is in the cards. Nothing is sent until you send it."
+ },
+ "srv.kollega.redanBesvarat": "The suggestion has already been answered.",
+ "srv.kollega.taEllerAvboj": "Answer ta or avboj.",
+ "srv.kollega.valjTid": "Pick a time for the meeting first."
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Maximus spelar in möten du väljer att spela in och skriver ut dem på datorn. Ljudet lämnar aldrig datorn.</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Maximus läser din kalender på datorn för att svara på frågor om dina möten. Den lägger bara till en händelse när du har sagt ja till den.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Maximus läser din kalender på datorn för att svara på frågor om dina möten. Den lägger bara till en händelse när du har sagt ja till den.</string>
+  <key>NSRemindersUsageDescription</key>
+  <string>Maximus läser dina påminnelser på datorn så att agenten kan hålla koll på dem åt dig. Den skriver bara en påminnelse när du har sagt ja, eller när du valt påminnelser för notiser till telefonen.</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>Maximus läser dina påminnelser på datorn så att agenten kan hålla koll på dem åt dig. Den skriver bara en påminnelse när du har sagt ja, eller när du valt påminnelser för notiser till telefonen.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Maximus läser Mail och Anteckningar på datorn när du ber om det. Utkast och anteckningar skapas bara efter ditt ja, och ingenting skickas utan att du trycker skicka. Meddelanden används bara om du valt iMessage för notiser till telefonen.</string>
+</dict>
+</plist>
